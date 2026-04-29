@@ -1,4 +1,4 @@
-# AhoyMoneyNative
+# Ahoy Money App
 
 Native SwiftUI iOS app for Ahoy Money.
 
@@ -9,4 +9,4 @@ Native SwiftUI iOS app for Ahoy Money.
 
 ## Open
 
-Open `AhoyMoney.xcodeproj` in Xcode and run the `AhoyMoney` scheme.
+Open `Ahoy Money App.xcodeproj` in Xcode and run the `AhoyMoney` scheme.
