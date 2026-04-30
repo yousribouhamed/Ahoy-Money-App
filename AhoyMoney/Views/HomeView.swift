@@ -69,67 +69,65 @@ struct HomeView: View {
                     .padding(.horizontal, 22)
                     .padding(.top, 8)
 
-                    if cards.cards.isEmpty {
-                        // First-card acquisition hero.
-                        ZStack {
-                            Image("cards")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 333)
-                                .mask(
-                                    LinearGradient(
-                                        colors: [.black, .black, .clear],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
+                    // Card hero with gradient fade + Get Virtual Card pill.
+                    ZStack {
+                        Image("cards")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 333)
+                            .mask(
+                                LinearGradient(
+                                    colors: [.black, .black, .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
                                 )
+                            )
 
-                            VStack(spacing: 8) {
-                                if wallet.isAccountVerified {
-                                    Button {
-                                        showCardTerms = true
-                                    } label: {
-                                        Text("Get Virtual Card")
+                        VStack(spacing: 8) {
+                            if wallet.isAccountVerified {
+                                Button {
+                                    showCardTerms = true
+                                } label: {
+                                    Text("Get Virtual Card")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 20)
+                                        .padding(.vertical, 10)
+                                        .glassEffect(.regular.interactive(), in: .capsule)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Button {
+                                    showVerifyEmail = true
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "envelope")
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundStyle(.white)
-                                            .padding(.horizontal, 20)
-                                            .padding(.vertical, 10)
-                                            .glassEffect(.regular.interactive(), in: .capsule)
+                                        Text("Verify your email")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundStyle(.white)
                                     }
-                                    .buttonStyle(.plain)
-                                } else {
-                                    Button {
-                                        showVerifyEmail = true
-                                    } label: {
-                                        HStack(spacing: 10) {
-                                            Image(systemName: "envelope")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundStyle(.white)
-                                            Text("Verify your email")
-                                                .font(.system(size: 16, weight: .semibold))
-                                                .foregroundStyle(.white)
-                                        }
-                                        .padding(.horizontal, 22)
-                                        .padding(.vertical, 12)
-                                        .glassEffect(.regular.interactive(), in: .capsule)
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "checkmark.shield.fill")
-                                            .font(.system(size: 13, weight: .semibold))
-                                        Text("Account is under review")
-                                            .font(.system(size: 14, weight: .semibold))
-                                    }
-                                    .foregroundStyle(Color(red: 1, green: 0xCC/255, blue: 0))
+                                    .padding(.horizontal, 22)
+                                    .padding(.vertical, 12)
+                                    .glassEffect(.regular.interactive(), in: .capsule)
                                 }
-                                Spacer()
+                                .buttonStyle(.plain)
+
+                                HStack(spacing: 6) {
+                                    Image(systemName: "checkmark.shield.fill")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("Account is under review")
+                                        .font(.system(size: 14, weight: .semibold))
+                                }
+                                .foregroundStyle(Color(red: 1, green: 0xCC/255, blue: 0))
                             }
-                            .padding(.top, 78)
+                            Spacer()
                         }
-                        .frame(height: 333)
-                        .padding(.horizontal, 22)
+                        .padding(.top, 78)
                     }
+                    .frame(height: 333)
+                    .padding(.horizontal, 22)
 
                     // Wallet balance + Top Up + Recent activities (floated up together).
                     VStack(spacing: 20) {
