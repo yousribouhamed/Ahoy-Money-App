@@ -129,7 +129,7 @@ struct HomeView: View {
                     .frame(height: 333)
                     .padding(.horizontal, 22)
 
-                    // Wallet balance + Top Up + Recent activities (floated up together).
+                    // Wallet balance + Top Up + Recent activities.
                     VStack(spacing: 20) {
                         // Wallet balance + Top Up.
                         HStack {
@@ -264,7 +264,7 @@ struct HomeView: View {
                         }
                     }
                     .padding(.horizontal, 22)
-                    .padding(.top, -160)
+                    .padding(.top, -52)
                     .padding(.bottom, 60)
                 }
             }
