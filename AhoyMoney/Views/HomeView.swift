@@ -46,6 +46,7 @@ struct HomeView: View {
                             .resizable()
                             .scaledToFill()
                             .frame(width: 48, height: 48)
+                            .background(Color(red: 1, green: 0.86, blue: 0.87))
                             .clipShape(Circle())
 
                         HStack(spacing: 8) {
