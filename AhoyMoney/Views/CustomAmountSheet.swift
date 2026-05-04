@@ -41,9 +41,7 @@ struct CustomAmountSheet: View {
                         .scaledToFit()
                         .frame(height: 38)
                         .foregroundStyle(.black)
-                    Text(displayValue)
-                        .font(.system(size: 48, weight: .bold))
-                        .foregroundStyle(.black)
+                    RollingAmountText(value: displayValue)
                 }
                 .padding(.bottom, 6)
                 .overlay(alignment: .bottom) {
@@ -101,5 +99,56 @@ struct CustomAmountSheet: View {
                 focused = true
             }
         }
+    }
+}
+
+private struct RollingAmountText: View {
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(value.enumerated()), id: \.offset) { _, character in
+                RollingAmountCharacter(character: character)
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        )
+                    )
+            }
+        }
+        .font(.system(size: 48, weight: .bold, design: .default))
+        .monospacedDigit()
+        .foregroundStyle(.black)
+        .animation(.smooth(duration: 0.22), value: value)
+        .accessibilityLabel(value)
+    }
+}
+
+private struct RollingAmountCharacter: View {
+    let character: Character
+
+    private var width: CGFloat {
+        switch character {
+        case ".", ",":
+            return 14
+        default:
+            return 31
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Text(String(character))
+                .id(character)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    )
+                )
+        }
+        .frame(width: width, height: 58)
+        .clipped()
     }
 }
