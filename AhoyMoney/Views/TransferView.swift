@@ -7,6 +7,25 @@ struct TransferView: View {
     /// Set when the user picks a rail from the type sheet — drives the push
     /// into `AddBeneficiaryView`. Optional so we can use `navigationDestination(item:)`.
     @State private var pendingKind: BeneficiaryKind? = nil
+    @State private var query: String = ""
+    @FocusState private var searchFocused: Bool
+
+    /// Filters the suggested carousel by name / nickname / phone / email.
+    private var filteredBeneficiaries: [Beneficiary] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return store.items }
+        return store.items.filter {
+            $0.name.lowercased().contains(q)
+            || ($0.nickname?.lowercased().contains(q) ?? false)
+            || $0.subtitle.lowercased().contains(q)
+            || ($0.phone?.contains(q) ?? false)
+            || ($0.email?.lowercased().contains(q) ?? false)
+        }
+    }
+
+    private var isSearching: Bool {
+        !query.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     var body: some View {
         NavigationStack {
@@ -30,6 +49,8 @@ struct TransferView: View {
                         BeneficiariesListView()
                     case .detail(let b):
                         BeneficiaryDetailView(beneficiary: b)
+                    case .upcoming:
+                        UpcomingTransfersView()
                     }
                 }
         }
@@ -40,6 +61,7 @@ struct TransferView: View {
     private enum TransferRoute: Hashable {
         case list
         case detail(Beneficiary)
+        case upcoming
     }
 
     private var content: some View {
@@ -52,7 +74,7 @@ struct TransferView: View {
                     HStack {
                         Text("Transfer")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
 
                         Spacer()
 
@@ -63,7 +85,7 @@ struct TransferView: View {
                         } label: {
                             Text("+ New Beneficiary")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.textPrimary)
                         }
                         .buttonStyle(.glass)
                         .buttonBorderShape(.capsule)
@@ -74,86 +96,112 @@ struct TransferView: View {
                     .padding(.top, 8)
 
                     VStack(spacing: 20) {
-                        // Search field — iOS 26 liquid glass.
+                        // Search field — iOS 26 liquid glass, fully functional.
                         HStack(spacing: 8) {
                             Image(systemName: "magnifyingglass")
-                                .foregroundStyle(.white.opacity(0.7))
-                            Text("Name, Phone, email")
-                                .foregroundStyle(.white.opacity(0.7))
-                            Spacer(minLength: 0)
+                                .foregroundStyle(Theme.textSecondary)
+                            TextField(
+                                "",
+                                text: $query,
+                                prompt: Text("Name, phone, email")
+                                    .foregroundStyle(Theme.textSecondary)
+                            )
+                            .focused($searchFocused)
+                            .submitLabel(.search)
+                            .textFieldStyle(.plain)
+                            .foregroundStyle(Theme.textPrimary)
+                            .tint(.white)
+                            .autocorrectionDisabled(true)
+                            .textInputAutocapitalization(.never)
+
+                            if !query.isEmpty {
+                                Button { query = "" } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(Theme.textSecondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                         .font(.system(size: 17))
                         .padding(.horizontal, 14)
                         .frame(height: 44)
                         .glassEffect(.regular.interactive(), in: .capsule)
 
-                        // Suggested — driven by the store so newly-added contacts
-                        // appear at the front automatically.
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Suggested")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.white)
+                        // Searching → vertical list of matches; otherwise → suggested carousel.
+                        if isSearching {
+                            searchResults
+                        } else {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Suggested")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(Theme.textPrimary)
 
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    ForEach(store.items) { person in
-                                        NavigationLink(value: TransferRoute.detail(person)) {
-                                            SuggestedAvatar(person: person)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 12) {
+                                        ForEach(store.items) { person in
+                                            NavigationLink(value: TransferRoute.detail(person)) {
+                                                SuggestedAvatar(person: person)
+                                            }
+                                            .buttonStyle(.plain)
                                         }
-                                        .buttonStyle(.plain)
                                     }
                                 }
+                                .scrollClipDisabled()
                             }
-                            .scrollClipDisabled()
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        // Quick actions — same destinations as the type sheet,
-                        // so users have two equally-fast entry points.
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Quick actions")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.white)
-
-                            VStack(spacing: 16) {
-                                QuickActionRow(emoji: "🌎",
-                                               title: "Send international",
-                                               subtitle: "Bank transfers to 200+ countries") {
-                                    requestAdd(kind: .international)
-                                }
-                                QuickActionRow(emoji: "🇦🇪",
-                                               title: "Send with in UAE",
-                                               subtitle: "Transfer through UAE banks") {
-                                    requestAdd(kind: .uae)
-                                }
-                                QuickActionRow(emoji: "💳",
-                                               title: "Wallet transfer",
-                                               subtitle: "From wallet to wallet") {
-                                    requestAdd(kind: .wallet)
-                                }
-                            }
-                            .padding(12)
-                            .frame(maxWidth: .infinity)
-                            .background(Theme.card, in: .rect(cornerRadius: 12))
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
-                        // Manage your transfers.
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Manage your transfers")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.white)
+                        if !isSearching {
+                            // Quick actions — same destinations as the type sheet,
+                            // so users have two equally-fast entry points.
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Quick actions")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(Theme.textPrimary)
 
-                            VStack(spacing: 16) {
-                                NavigationLink(value: TransferRoute.list) {
-                                    ManageRow(icon: "person.2.fill", title: "Beneficiaries")
+                                VStack(spacing: 16) {
+                                    QuickActionRow(emoji: "🌎",
+                                                   title: "Send international",
+                                                   subtitle: "Bank transfers to 200+ countries") {
+                                        requestAdd(kind: .international)
+                                    }
+                                    QuickActionRow(emoji: "🇦🇪",
+                                                   title: "Send with in UAE",
+                                                   subtitle: "Transfer through UAE banks") {
+                                        requestAdd(kind: .uae)
+                                    }
+                                    QuickActionRow(emoji: "💳",
+                                                   title: "Wallet transfer",
+                                                   subtitle: "From wallet to wallet") {
+                                        requestAdd(kind: .wallet)
+                                    }
                                 }
-                                .buttonStyle(.plain)
-
-                                ManageRow(icon: "calendar", title: "Upcoming transfers")
+                                .padding(12)
+                                .frame(maxWidth: .infinity)
+                                .background(Theme.card, in: .rect(cornerRadius: 12))
                             }
-                            .padding(12)
-                            .frame(maxWidth: .infinity)
-                            .background(Theme.card, in: .rect(cornerRadius: 12))
+
+                            // Manage your transfers.
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Manage your transfers")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(Theme.textPrimary)
+
+                                VStack(spacing: 16) {
+                                    NavigationLink(value: TransferRoute.list) {
+                                        ManageRow(icon: "person.2.fill", title: "Beneficiaries")
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    NavigationLink(value: TransferRoute.upcoming) {
+                                        ManageRow(icon: "calendar", title: "Upcoming transfers")
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity)
+                                .background(Theme.card, in: .rect(cornerRadius: 12))
+                            }
                         }
                     }
                     .padding(.horizontal, 22)
@@ -162,6 +210,82 @@ struct TransferView: View {
                 }
             }
             .scrollIndicators(.hidden)
+        }
+    }
+
+    /// Vertical results list shown when the user is typing in the search field.
+    @ViewBuilder
+    private var searchResults: some View {
+        let matches = filteredBeneficiaries
+        if matches.isEmpty {
+            VStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Theme.accent.opacity(0.18))
+                        .frame(width: 60, height: 60)
+                    Image(systemName: "person.crop.circle.badge.questionmark")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
+                .padding(.top, 16)
+
+                Text("No matches for \u{201C}\(query)\u{201D}")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+
+                Text("Add a new beneficiary to send to someone you haven't paid before.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+
+                Button {
+                    showingBeneficiarySheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text("New beneficiary")
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.accentDeep)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Theme.accent, in: .capsule)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+                .padding(.bottom, 16)
+            }
+            .frame(maxWidth: .infinity)
+            .background(Theme.card, in: .rect(cornerRadius: 16))
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Results")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("\(matches.count)")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Theme.accent.opacity(0.15), in: .capsule)
+                    Spacer()
+                }
+
+                VStack(spacing: 0) {
+                    ForEach(Array(matches.enumerated()), id: \.element.id) { idx, b in
+                        NavigationLink(value: TransferRoute.detail(b)) {
+                            SearchResultRow(
+                                beneficiary: b,
+                                showDivider: idx < matches.count - 1
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(Theme.card, in: .rect(cornerRadius: 16))
+            }
         }
     }
 
@@ -186,7 +310,7 @@ private struct SuggestedAvatar: View {
                     .fill(person.avatarBg)
                 Text(person.initial)
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(Theme.textSecondary)
             }
             .frame(width: 48, height: 48)
 
@@ -219,7 +343,7 @@ private struct QuickActionRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(subtitle)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Theme.accent)
@@ -254,13 +378,76 @@ private struct ManageRow: View {
 
             Text(title)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             Spacer()
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.accent)
+        }
+    }
+}
+
+// MARK: - Search result row.
+private struct SearchResultRow: View {
+    let beneficiary: Beneficiary
+    let showDivider: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(beneficiary.avatarBg)
+                    Text(beneficiary.initial)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                .frame(width: 40, height: 40)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(beneficiary.displayName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    Text(beneficiary.subtitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.accent)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                // Rail badge.
+                Text(railLabel)
+                    .font(.system(size: 9, weight: .heavy))
+                    .tracking(0.5)
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Theme.cardOverlay, in: .capsule)
+                    .overlay(Capsule().strokeBorder(Theme.strokeSubtle, lineWidth: 1))
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .padding(14)
+
+            if showDivider {
+                Rectangle()
+                    .fill(Theme.cardOverlay)
+                    .frame(height: 1)
+                    .padding(.leading, 66)
+            }
+        }
+    }
+
+    private var railLabel: String {
+        switch beneficiary.kind {
+        case .wallet:        return "WALLET"
+        case .uae:           return "UAE"
+        case .international: return "INT'L"
         }
     }
 }

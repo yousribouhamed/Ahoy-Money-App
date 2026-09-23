@@ -54,16 +54,16 @@ struct DarkFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.system(size: 16, weight: .regular))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.textPrimary)
             .tint(.white)
             .padding(.horizontal, 18)
             .frame(height: 56)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.cardOverlay)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                            .strokeBorder(Theme.strokeSubtle, lineWidth: 1)
                     )
             )
     }
@@ -104,7 +104,7 @@ struct AppPasswordField: View {
             .submitLabel(submitLabel)
             .onSubmit(onSubmit)
             .font(.system(size: 16, weight: .regular))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.textPrimary)
             .tint(.white)
 
             Button {
@@ -120,10 +120,10 @@ struct AppPasswordField: View {
         .frame(height: 56)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.06))
+                .fill(Theme.cardOverlay)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        .strokeBorder(Theme.strokeSubtle, lineWidth: 1)
                 )
         )
     }
@@ -169,11 +169,65 @@ struct CheckboxToggle: View {
                 if isOn {
                     Image(systemName: "checkmark")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
             }
             .frame(width: 16, height: 16)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// The Setup Wallet progress bar.
+///
+/// This used to be five hand-written capsules copied into every step screen,
+/// which is how Fill Details ended up without one at all. Owning it here means
+/// the count changes in one place if a step is ever added or dropped.
+///
+/// White is ground covered, accent is what's left.
+struct OnboardingStepper: View {
+    let step: Int
+    var total: Int = 5
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<total, id: \.self) { i in
+                Capsule()
+                    .fill(i < step ? Color.white : Theme.accent)
+                    .frame(height: 6)
+            }
+        }
+        // A bare row of capsules reads as nothing to VoiceOver, so state the
+        // position rather than letting it announce five unlabelled shapes.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(step) of \(total)")
+    }
+}
+
+// MARK: - Empty state illustration
+
+/// Artwork for an empty state.
+///
+/// One component rather than four `Image` call sites, because these are a
+/// **set**: faceted low-poly objects, one hue, one camera angle, one light
+/// direction. A set sized differently on each screen stops reading as one.
+///
+/// The assets are trimmed to their alpha bounds, so `size` is the object's
+/// size rather than the size of a square it floats inside — the untrimmed
+/// exports filled only ~58% of their frame and every call site would have had
+/// to guess a correction factor.
+///
+/// Hidden from VoiceOver: the headline underneath already says what's missing,
+/// and announcing "faceted card illustration" first is noise.
+struct EmptyStateArt: View {
+    let name: String
+    var size: CGFloat = 132
+
+    var body: some View {
+        Image(name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }

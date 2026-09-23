@@ -36,7 +36,7 @@ struct BeneficiarySuccessView: View {
 
                 Text("Beneficiary added")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 Text("\(beneficiary.nickname ?? beneficiary.name) is ready to receive money.")
                     .font(.system(size: 15, weight: .medium))
@@ -51,7 +51,7 @@ struct BeneficiarySuccessView: View {
                         Circle().fill(beneficiary.avatarBg)
                         Text(beneficiary.initial)
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.9))
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     .frame(width: 48, height: 48)
 
@@ -59,7 +59,7 @@ struct BeneficiarySuccessView: View {
                         HStack(spacing: 6) {
                             Text(beneficiary.nickname ?? beneficiary.name)
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.textPrimary)
                             if beneficiary.kind == .wallet {
                                 Image(systemName: "checkmark.seal.fill")
                                     .font(.system(size: 12, weight: .semibold))
@@ -78,10 +78,10 @@ struct BeneficiarySuccessView: View {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
+                        .fill(Theme.cardOverlay)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                                .strokeBorder(Theme.strokeSubtle, lineWidth: 1)
                         )
                 )
                 .padding(.horizontal, 24)
@@ -103,7 +103,7 @@ struct BeneficiarySuccessView: View {
                     } label: {
                         Text("Done")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .buttonStyle(.plain)

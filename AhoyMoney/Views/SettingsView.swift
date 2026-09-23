@@ -2,12 +2,17 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppRouter.self) private var router
+    #if DEBUG
+    @Environment(TransactionStore.self) private var activity
+    @Environment(WalletStore.self) private var wallet
+    @Environment(VirtualCardStore.self) private var cards
+    #endif
+    @Environment(AppearanceStore.self) private var appearance
 
     @State private var twoFactor: Bool = true
     @State private var biometric: Bool = false
     @State private var pushNotifications: Bool = false
     @State private var autoTopUp: Bool = false
-    @State private var darkMode: Bool = true
     @State private var dailyLimit: String = ""
     @State private var monthlyLimit: String = ""
     @State private var dailyLimitValue: Double = 30
@@ -29,7 +34,7 @@ struct SettingsView: View {
                     ZStack {
                         Text("Wallet Setting")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Spacer()
@@ -57,10 +62,9 @@ struct SettingsView: View {
                             ProfilePill()
                         }
                         .buttonStyle(.plain)
-                        .scrollEdgeBlur()
-
+                        
                         // Profile Settings.
-                        Section(title: "Profile Settings", trailingIcon: "square.and.pencil") {
+                        Section(title: "Profile Settings") {
                             VStack(spacing: 10) {
                                 InfoRow(label: "Phone", value: "051542621")
                                 InfoRow(label: "Country", value: "Algeria")
@@ -69,8 +73,7 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity)
                             .background(Theme.card, in: .rect(cornerRadius: 16))
                         }
-                        .scrollEdgeBlur()
-
+                        
                         // App Setting — Language row + Dark Mode toggle.
                         Section(title: "App Setting") {
                             VStack(spacing: 10) {
@@ -80,12 +83,12 @@ struct SettingsView: View {
                                     HStack {
                                         Text("Language")
                                             .font(.system(size: 15, weight: .semibold))
-                                            .foregroundStyle(Theme.accent)
+                                            .foregroundStyle(Theme.textPrimary)
                                         Spacer()
                                         HStack(spacing: 8) {
                                             Text("English")
                                                 .font(.system(size: 15, weight: .semibold))
-                                                .foregroundStyle(.white)
+                                                .foregroundStyle(Theme.textPrimary)
                                             Image(systemName: "chevron.right")
                                                 .font(.system(size: 12, weight: .semibold))
                                                 .foregroundStyle(Theme.accent)
@@ -95,11 +98,19 @@ struct SettingsView: View {
                                 .buttonStyle(.plain)
 
                                 HStack {
-                                    Text("Dark Mode")
+                                    Text("Appearance")
                                         .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.textPrimary)
                                     Spacer()
-                                    Toggle("", isOn: $darkMode).labelsHidden().tint(Theme.accent)
+
+                                    @Bindable var bindable = appearance
+                                    Picker("Appearance", selection: $bindable.mode) {
+                                        ForEach(AppearanceMode.allCases, id: \.self) { mode in
+                                            Text(mode.label).tag(mode)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .tint(Theme.accent)
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -107,8 +118,7 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity)
                             .background(Theme.card, in: .rect(cornerRadius: 16))
                         }
-                        .scrollEdgeBlur()
-
+                        
                         // Security.
                         Section(title: "Security") {
                             VStack(spacing: 16) {
@@ -139,8 +149,7 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity)
                             .background(Theme.card, in: .rect(cornerRadius: 16))
                         }
-                        .scrollEdgeBlur()
-
+                        
                         // Notifications.
                         Section(title: "Notifications") {
                             VStack(spacing: 16) {
@@ -159,8 +168,7 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity)
                             .background(Theme.card, in: .rect(cornerRadius: 16))
                         }
-                        .scrollEdgeBlur()
-
+                        
                         // Transfer Limits — half-circle drag gauges.
                         Section(title: "Transfer Limits") {
                             HStack(spacing: 12) {
@@ -168,8 +176,7 @@ struct SettingsView: View {
                                 LimitGaugeCard(title: "Monthly", value: $monthlyLimitValue)
                             }
                         }
-                        .scrollEdgeBlur()
-
+                        
                         // Support.
                         Section(title: "Support") {
                             VStack(spacing: 0) {
@@ -189,7 +196,61 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity)
                             .background(Theme.card, in: .rect(cornerRadius: 16))
                         }
-                        .scrollEdgeBlur()
+                        
+                        // The onboarding outcomes can't be reached by using the
+                        // app — most are back-office events with no backend
+                        // behind them yet. This is how they get reviewed.
+                        #if DEBUG
+                        Section(title: "Debug") {
+                            VStack(spacing: 0) {
+                                NavigationLink {
+                                    OnboardingStatesDebugView()
+                                } label: {
+                                    SupportRow(
+                                        icon: "wrench.and.screwdriver.fill",
+                                        title: "Onboarding states",
+                                        subtitle: "Waiting screen and the four exits",
+                                        showBadge: false
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                NavigationLink {
+                                    CardStatesDebugView()
+                                } label: {
+                                    SupportRow(
+                                        icon: "creditcard.trianglebadge.exclamationmark",
+                                        title: "Card states",
+                                        subtitle: "Issue failure, the cap, and every decline",
+                                        showBadge: false
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                // A new account is genuinely empty — no balance,
+                                // no card, no history. That's the honest default,
+                                // but it leaves nothing to demo the cards,
+                                // transactions or search screens with. This puts
+                                // the sample data back on demand.
+                                Button {
+                                    if activity.items.isEmpty { loadDemoData() } else { clearDemoData() }
+                                } label: {
+                                    SupportRow(
+                                        icon: activity.items.isEmpty ? "wand.and.stars" : "eraser.fill",
+                                        title: activity.items.isEmpty ? "Load demo data" : "Clear demo data",
+                                        subtitle: activity.items.isEmpty
+                                            ? "A balance, a card and some history"
+                                            : "Back to a brand-new account",
+                                        showBadge: false
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity)
+                            .background(Theme.card, in: .rect(cornerRadius: 16))
+                        }
+                        #endif
 
                         // Logout.
                         Button {
@@ -210,18 +271,34 @@ struct SettingsView: View {
                             .background(Theme.card, in: .rect(cornerRadius: 16))
                         }
                         .buttonStyle(.plain)
-                        .scrollEdgeBlur()
-                    }
+                                            }
                     .padding(.horizontal, 24)
                     .padding(.top, 24)
                     .padding(.bottom, 120)
                 }
             }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectStyle(.soft, for: .bottom)
+            .scrollEdgeBlur()
         }
     }
+
+    #if DEBUG
+    private func loadDemoData() {
+        activity.loadDemoData()
+        wallet.balance = 1_245
+        wallet.employerSpent = 1_320
+        if cards.cards.isEmpty { cards.add(.demoSample) }
+    }
+
+    private func clearDemoData() {
+        activity.clear()
+        wallet.balance = 0
+        wallet.employerSpent = 0
+        cards.cards = []
+    }
+    #endif
+
 }
 
 // MARK: - Section wrapper.
@@ -235,12 +312,12 @@ private struct Section<Content: View>: View {
             HStack {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 if let icon = trailingIcon {
                     Image(systemName: icon)
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
             }
             content
@@ -262,7 +339,7 @@ private struct ProfilePill: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Yousri Bouhamed")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("yybouhamed@gmail.com")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.accent)
@@ -273,7 +350,7 @@ private struct ProfilePill: View {
         .padding(.horizontal, 10)
         .frame(height: 65.5)
         .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.1), in: .rect(cornerRadius: 16))
+        .background(Theme.cardOverlayHigh, in: .rect(cornerRadius: 16))
     }
 }
 
@@ -302,7 +379,7 @@ private struct SupportRow: View {
                 HStack(spacing: 6) {
                     Text(title)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     if showBadge {
                         Text("NEW")
                             .font(.system(size: 9, weight: .heavy))
@@ -342,7 +419,7 @@ private struct InfoRow: View {
             Spacer()
             Text(value)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
         }
     }
 }
@@ -358,7 +435,7 @@ private struct ToggleRow: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text(subtitle)
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(Theme.accent)
@@ -384,7 +461,7 @@ private struct LimitRow: View {
                     TextField("", text: $value)
                         .keyboardType(.numberPad)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .tint(Theme.accent)
                         .focused($focused)
                 } else {

@@ -37,7 +37,7 @@ struct TopUpView: View {
                 ZStack {
                     Text("Top Up")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {
@@ -68,7 +68,7 @@ struct TopUpView: View {
                             CurrencyIcon(size: 16)
                             Text(WalletStore.formatMoney(wallet.balance))
                                 .font(.system(size: 20, weight: .bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.textPrimary)
                         }
                     }
                     .padding(12)
@@ -88,7 +88,7 @@ struct TopUpView: View {
                                 CurrencyIcon(size: 16, color: .white)
                                 Text(customAmount)
                                     .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.textPrimary)
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -143,7 +143,7 @@ struct TopUpView: View {
 
                                     Text(paymentMethodLabel)
                                         .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.textPrimary)
                                 }
                             }
 
@@ -151,7 +151,7 @@ struct TopUpView: View {
 
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         .contentShape(Rectangle())
                     }
@@ -245,7 +245,7 @@ private struct AmountChip: View {
             .frame(height: 65)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(selected ? Theme.accent : Color.white.opacity(0.15))
+                    .fill(selected ? Theme.accent : Theme.strokeSubtle)
             )
         }
         .buttonStyle(.plain)

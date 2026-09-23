@@ -64,7 +64,7 @@ struct CountryCodeSheet: View {
                 ZStack {
                     Text("Country Code")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {
@@ -109,7 +109,7 @@ struct CountryCodeSheet: View {
                                 HStack {
                                     Text(country.display)
                                         .font(.system(size: 16, weight: .medium))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.textPrimary)
                                     Spacer()
                                 }
                                 .padding(.vertical, 16)
@@ -143,17 +143,17 @@ struct CountryCodeSheet: View {
                     GlassEffectContainer {
                         HStack(spacing: 8) {
                             Image(systemName: "magnifyingglass")
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(Theme.textSecondary)
                             TextField(
                                 "",
                                 text: $query,
-                                prompt: Text("Search").foregroundStyle(.white.opacity(0.7))
+                                prompt: Text("Search").foregroundStyle(Theme.textSecondary)
                             )
                             .textFieldStyle(.plain)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
                             .tint(.white)
                             Image(systemName: "mic.fill")
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         .font(.system(size: 17))
                         .padding(.horizontal, 16)

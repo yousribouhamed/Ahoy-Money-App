@@ -33,7 +33,7 @@ struct TransactionsView: View {
                                 CurrencyIcon(size: 16)
                                 Text(formattedBalance)
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.textPrimary)
                             }
                         }
                         .padding(12)
@@ -57,7 +57,7 @@ struct TransactionsView: View {
 
                             Text("Send")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.textPrimary)
                         }
                     }
                     .padding(.horizontal, 22)
@@ -99,8 +99,8 @@ struct TransactionsView: View {
     private var june: [TxnRowData] {
         [
             .init(kind: .transfer,  title: "Transfer",   timestamp: "07/12/2023, 02:30 PM", amount: "12,900"),
-            .init(kind: .arrow,     title: "Cash-out",   timestamp: "YESTERDAY, 10:03 AM",  amount: "12,900"),
-            .init(kind: .arrow,     title: "Withdrawal", timestamp: "YESTERDAY, 06:45 PM",  amount: "3,200"),
+            .init(kind: .arrow,     title: "Cash-out",   timestamp: "YESTERDAY, 10:03 AM",  amount: "12,900", status: .onHold),
+            .init(kind: .arrow,     title: "Withdrawal", timestamp: "YESTERDAY, 06:45 PM",  amount: "3,200", status: .failed(.cardFrozen)),
             .init(kind: .arrow,     title: "Deposit",    timestamp: "TODAY, 09:15 AM",      amount: "5,000")
         ]
     }
@@ -146,7 +146,7 @@ private struct StatCard: View {
                 CurrencyIcon(size: 12, color: .white)
                 Text(amount)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
             }
         }
         .frame(maxWidth: .infinity)
@@ -156,7 +156,7 @@ private struct StatCard: View {
             ZStack {
                 // Track — subtle full-perimeter outline, sits flush inside the card.
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 2)
+                    .strokeBorder(Theme.cardOverlay, lineWidth: 2)
 
                 // Progress arc — represents value / limit, traced along the same perimeter.
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -184,6 +184,9 @@ private struct TxnRowData: Identifiable {
     let timestamp: String
     let amount: String
     var isDollar: Bool = false
+    /// Same type the card-scoped list uses, so the two pages can't describe
+    /// the same payment with different words.
+    var status: TransactionStatus = .paid
 
     enum Kind { case transfer, arrow }
 }
@@ -197,7 +200,7 @@ private struct MonthSection: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             VStack(spacing: 16) {
                 ForEach(items) { item in
@@ -229,10 +232,13 @@ private struct TxnRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text(item.timestamp)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.textPrimary)
+                    HStack(spacing: 6) {
+                        TransactionStatusPill(status: item.status, compact: true)
+                        Text(item.timestamp)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                    }
                 }
             }
 
@@ -244,7 +250,7 @@ private struct TxnRow: View {
                 }
                 Text(item.amount)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
             }
         }
     }

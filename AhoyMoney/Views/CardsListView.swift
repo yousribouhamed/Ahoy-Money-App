@@ -11,10 +11,12 @@ import SwiftUI
 struct CardsListView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(VirtualCardStore.self) private var store
+    @Environment(WalletStore.self) private var wallet
 
     @State private var focusedIndex: Int = 0
     @State private var showTerms: Bool = false
     @State private var showCreate: Bool = false
+    @State private var showAtLimit: Bool = false
     @State private var pushedCardId: UUID? = nil
 
     private var focusedCard: VirtualCard? {
@@ -34,20 +36,23 @@ struct CardsListView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 24) {
-                            carousel.scrollEdgeBlur()
-                            focusedSummary.scrollEdgeBlur()
-                            allCardsList.scrollEdgeBlur()
+                            carousel
+                            focusedSummary
+                            allCardsList
                         }
                         .padding(.bottom, 60)
                     }
                     .scrollIndicators(.hidden)
-                    .scrollEdgeEffectStyle(.soft, for: .top)
                     .scrollEdgeEffectStyle(.soft, for: .bottom)
+                    .scrollEdgeBlur()
                 }
             }
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showAtLimit) {
+            atLimitSheet
+        }
         .sheet(isPresented: $showTerms) {
             CardTermsSheet(onAccepted: {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -69,7 +74,7 @@ struct CardsListView: View {
         ZStack {
             Text("My Cards")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button { dismiss() } label: {
@@ -83,8 +88,10 @@ struct CardsListView: View {
 
                 Spacer()
 
+                // Stays live at the cap. A disabled + can't say why it's
+                // disabled, and "why can't I add one" is the whole question.
                 Button {
-                    showTerms = true
+                    if store.canCreateCard { showTerms = true } else { showAtLimit = true }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 16, weight: .semibold))
@@ -92,11 +99,74 @@ struct CardsListView: View {
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
                 .controlSize(.large)
-                .tint(.white)
+                .tint(store.canCreateCard ? .white : Theme.textSecondary)
             }
         }
         .padding(.horizontal, 19)
         .padding(.top, 8)
+    }
+
+    // MARK: - At the limit
+
+    /// Says the number, and says the one thing that changes it.
+    ///
+    /// Deliberately offers no route to more cards, because there isn't one —
+    /// a "request more" button that goes nowhere is worse than no button. The
+    /// cap exists because each card costs us money, but that's our problem and
+    /// not something to explain here.
+    private var atLimitSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Theme.accent.opacity(0.12))
+                    .frame(width: 60, height: 60)
+                Image(systemName: "creditcard.and.123")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+            }
+            .padding(.top, 8)
+
+            Text("You have all \(store.maxCards) cards")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(Theme.ink)
+
+            Text("\(store.maxCards) is the most you can have at once. To make a different one, delete a card you no longer use — that frees a slot straight away.")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(Theme.grayText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // The reassurance that makes deleting thinkable. Said here because
+            // this is where someone first considers it.
+            Text("Deleting a card never touches your money. Your balance sits in your wallet, and every card reaches the same balance.")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.grayText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.grayBg, in: .rect(cornerRadius: 12))
+
+            Spacer(minLength: 0)
+
+            Button {
+                showAtLimit = false
+            } label: {
+                Text("Got it")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .background(Theme.accent, in: .capsule)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(430)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(20)
+        .presentationBackground(Color.white)
+        .environment(\.colorScheme, .light)
     }
 
     // MARK: - Carousel
@@ -169,7 +239,7 @@ struct CardsListView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(card.label)
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
                         HStack(spacing: 6) {
                             Circle()
                                 .fill(statusDot(for: card.status))
@@ -179,21 +249,27 @@ struct CardsListView: View {
                                 .tracking(1)
                                 .foregroundStyle(Theme.accent)
                             Text("•")
-                                .foregroundStyle(.white.opacity(0.4))
+                                .foregroundStyle(Theme.textSecondary)
                             Text("•••• \(card.last4)")
                                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
                     Spacer()
+                    // Wallet balance, not the card's — every card reaches the
+                    // same money. Labelled so that reads correctly even when
+                    // the worker is swiping through several cards in a row.
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("Balance")
+                        Text("Wallet balance")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.6))
-                        Text(formatCurrency(card.balance))
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .monospacedDigit()
+                            .foregroundStyle(Theme.textSecondary)
+                        HStack(spacing: 5) {
+                            CurrencyIcon(size: 15, color: Theme.textPrimary)
+                            Text(formatCurrency(wallet.balanceDecimal))
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(Theme.textPrimary)
+                                .monospacedDigit()
+                        }
                     }
                 }
 
@@ -245,7 +321,7 @@ struct CardsListView: View {
             HStack {
                 Text("All cards")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("\(store.cards.count)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.accent)
@@ -264,6 +340,10 @@ struct CardsListView: View {
                         CardListRow(card: card, showDivider: idx < store.cards.count - 1)
                     }
                     .buttonStyle(.plain)
+                    // Freeze only. Delete deliberately isn't offered here: it's
+                    // permanent with no undo, and the consequences run to three
+                    // paragraphs that a context menu can't carry. It lives on
+                    // the card screen, behind the confirmation that states them.
                     .contextMenu {
                         Button {
                             store.toggleFreeze(card)
@@ -272,12 +352,6 @@ struct CardsListView: View {
                                 card.status == .frozen ? "Unfreeze" : "Freeze",
                                 systemImage: card.status == .frozen ? "sun.max" : "snowflake"
                             )
-                        }
-                        Divider()
-                        Button(role: .destructive) {
-                            store.remove(card)
-                        } label: {
-                            Label("Remove", systemImage: "trash")
                         }
                     }
                 }
@@ -293,20 +367,13 @@ struct CardsListView: View {
         VStack(spacing: 16) {
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(Theme.accent.opacity(0.1))
-                    .frame(width: 120, height: 120)
-                Image(systemName: "creditcard.fill")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-            }
+            EmptyStateArt(name: "empty_cards", size: 150)
 
             Text("No cards yet")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
-            Text("Issue a virtual card to spend online or add it to Apple Pay — instantly.")
+            Text("Make a virtual card to spend online. It's ready to use straight away.")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Theme.accent)
                 .multilineTextAlignment(.center)
@@ -342,14 +409,14 @@ struct CardsListView: View {
         f.minimumFractionDigits = 2
         f.maximumFractionDigits = 2
         let n = NSDecimalNumber(decimal: value)
-        return "AED \(f.string(from: n) ?? "0.00")"
+        return f.string(from: n) ?? "0.00"
     }
 
     private func statusLabel(for status: CardStatus) -> String {
         switch status {
         case .active:  return "ACTIVE"
         case .frozen:  return "FROZEN"
-        case .blocked: return "BLOCKED"
+        case .expired: return "EXPIRED"
         }
     }
 
@@ -357,7 +424,7 @@ struct CardsListView: View {
         switch status {
         case .active:  return Color(red: 0.30, green: 0.85, blue: 0.55)
         case .frozen:  return Color(red: 0.40, green: 0.65, blue: 1.00)
-        case .blocked: return Color(red: 1.0, green: 0.42, blue: 0.42)
+        case .expired: return Color(red: 1.0, green: 0.42, blue: 0.42)
         }
     }
 }
@@ -377,20 +444,20 @@ private struct CardListRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(card.label)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
 
                     HStack(spacing: 6) {
                         Text("•••• \(card.last4)")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(Theme.textSecondary)
                         if card.status == .frozen {
                             Image(systemName: "snowflake")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.40, green: 0.65, blue: 1.00))
                         }
-                        if card.status == .blocked {
-                            Image(systemName: "lock.fill")
+                        if card.status == .expired {
+                            Image(systemName: "calendar.badge.exclamationmark")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(Color(red: 1.0, green: 0.42, blue: 0.42))
                         }
@@ -409,7 +476,7 @@ private struct CardListRow: View {
 
             if showDivider {
                 Rectangle()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.cardOverlay)
                     .frame(height: 1)
                     .padding(.leading, 86)
             }

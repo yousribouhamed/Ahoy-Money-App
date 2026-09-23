@@ -27,7 +27,7 @@ struct ResetPasswordView: View {
                 ZStack {
                     Text("Forget Password")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {

@@ -79,7 +79,7 @@ struct CustomAmountSheet: View {
             } label: {
                 Text("Add")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(isValid ? Color.black : Color.black.opacity(0.4), in: .capsule)
             }
@@ -120,13 +120,23 @@ private struct RollingAmountText: View {
         .font(.system(size: 48, weight: .bold, design: .default))
         .monospacedDigit()
         .foregroundStyle(.black)
-        .animation(.smooth(duration: 0.22), value: value)
+        .animation(.smooth(duration: 0.24), value: value)
         .accessibilityLabel(value)
     }
 }
 
 private struct RollingAmountCharacter: View {
     let character: Character
+    private let height: CGFloat = 58
+
+    @State private var visibleCharacter: Character
+    @State private var outgoingCharacter: Character?
+    @State private var isRolling: Bool = false
+
+    init(character: Character) {
+        self.character = character
+        self._visibleCharacter = State(initialValue: character)
+    }
 
     private var width: CGFloat {
         switch character {
@@ -139,16 +149,38 @@ private struct RollingAmountCharacter: View {
 
     var body: some View {
         ZStack {
-            Text(String(character))
-                .id(character)
-                .transition(
-                    .asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .move(edge: .bottom).combined(with: .opacity)
-                    )
-                )
+            if let outgoingCharacter {
+                Text(String(outgoingCharacter))
+                    .offset(y: isRolling ? height : 0)
+                    .opacity(isRolling ? 0 : 1)
+            }
+
+            Text(String(visibleCharacter))
+                .offset(y: outgoingCharacter == nil ? 0 : (isRolling ? 0 : -height))
+                .opacity(outgoingCharacter == nil ? 1 : (isRolling ? 1 : 0))
         }
-        .frame(width: width, height: 58)
+        .frame(width: width, height: height)
         .clipped()
+        .onChange(of: character) { _, newCharacter in
+            guard newCharacter != visibleCharacter else { return }
+
+            outgoingCharacter = visibleCharacter
+            visibleCharacter = newCharacter
+            isRolling = false
+
+            withAnimation(.smooth(duration: 0.24)) {
+                isRolling = true
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                outgoingCharacter = nil
+                isRolling = false
+            }
+        }
+        .onAppear {
+            visibleCharacter = character
+            outgoingCharacter = nil
+            isRolling = true
+        }
     }
 }

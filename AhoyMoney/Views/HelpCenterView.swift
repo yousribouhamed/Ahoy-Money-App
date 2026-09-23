@@ -15,6 +15,7 @@ struct HelpCenterView: View {
     @Environment(HelpStore.self) private var store
 
     @State private var goToSearch: Bool = false
+    @State private var goToChat: Bool = false
     @State private var pushedCategory: HelpCategory? = nil
     @State private var pushedArticleId: UUID? = nil
     @State private var showToast: Bool = false
@@ -26,26 +27,26 @@ struct HelpCenterView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
-                    hero.scrollEdgeBlur()
-                    statusPill.scrollEdgeBlur()
-                    quickContact.scrollEdgeBlur()
-                    popularSection.scrollEdgeBlur()
-                    categoriesSection.scrollEdgeBlur()
-                    footer.scrollEdgeBlur()
+                    hero
+                    quickContact
+                    popularSection
+                    categoriesSection
+                    footer
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 12)
                 .padding(.bottom, 60)
             }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectStyle(.soft, for: .bottom)
+            .scrollEdgeBlur()
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             topBar
                 .padding(.horizontal, 19)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
+                .headerBlurBackground()
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -57,6 +58,9 @@ struct HelpCenterView: View {
         }
         .navigationDestination(item: $pushedArticleId) { id in
             HelpArticleView(articleId: id)
+        }
+        .navigationDestination(isPresented: $goToChat) {
+            LiveChatView()
         }
         .liquidGlassToast(
             isPresented: $showToast,
@@ -71,7 +75,7 @@ struct HelpCenterView: View {
         ZStack {
             Text("Help Center")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button { dismiss() } label: {
@@ -87,7 +91,7 @@ struct HelpCenterView: View {
 
                 // Direct line to support.
                 Button {
-                    toast("Live chat coming soon")
+                    goToChat = true
                 } label: {
                     Image(systemName: "bubble.left.and.bubble.right.fill")
                         .font(.system(size: 14, weight: .semibold))
@@ -105,9 +109,12 @@ struct HelpCenterView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Hi Yousri 👋")
+                HStack(spacing: 8) {
+                    Text("Hi Yousri")
+                    Text(verbatim: "\u{1F44B}")
+                }
                     .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("How can we help today?")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Theme.accent)
@@ -121,17 +128,17 @@ struct HelpCenterView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.textSecondary)
                     Text("Search articles, topics, or questions")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                     Spacer()
 
                     // Voice hint — nice touch, hooks up later.
                     Image(systemName: "mic.fill")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .padding(.horizontal, 16)
                 .frame(height: 50)
@@ -163,10 +170,10 @@ struct HelpCenterView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("All services running normally")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Last checked just now")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Spacer()
@@ -177,8 +184,8 @@ struct HelpCenterView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.06), in: .capsule)
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .background(Theme.cardOverlay, in: .capsule)
+        .overlay(Capsule().strokeBorder(Theme.cardOverlay, lineWidth: 1))
     }
 
     // MARK: - Quick contact
@@ -187,7 +194,7 @@ struct HelpCenterView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Talk to a human")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack(spacing: 10) {
                 ContactTile(
@@ -196,7 +203,7 @@ struct HelpCenterView: View {
                     subtitle: "24/7 • Avg 2 min",
                     accent: Theme.accent
                 ) {
-                    toast("Live chat coming soon")
+                    goToChat = true
                 }
 
                 ContactTile(
@@ -234,7 +241,7 @@ struct HelpCenterView: View {
                     .foregroundStyle(Theme.accent)
                 Text("Popular questions")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
             }
 
@@ -264,11 +271,11 @@ struct HelpCenterView: View {
             HStack {
                 Text("Browse by topic")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text("\(HelpCategory.allCases.count) topics")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             LazyVGrid(
@@ -299,7 +306,7 @@ struct HelpCenterView: View {
         VStack(spacing: 10) {
             Text("Can't find an answer?")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             Text("Our team is one tap away — average response under 2 minutes.")
                 .font(.system(size: 12, weight: .medium))
@@ -308,7 +315,7 @@ struct HelpCenterView: View {
                 .padding(.horizontal, 12)
 
             Button {
-                toast("Live chat coming soon")
+                goToChat = true
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "bubble.left.and.bubble.right.fill")
@@ -326,7 +333,7 @@ struct HelpCenterView: View {
 
             Text("Ahoy v1.0.0  •  Regulated by UAE Central Bank")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 6)
         }
         .frame(maxWidth: .infinity)
@@ -365,10 +372,10 @@ private struct ContactTile: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(subtitle)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -403,7 +410,7 @@ private struct PopularRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(article.question)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
 
@@ -432,7 +439,7 @@ private struct PopularRow: View {
 
             if showDivider {
                 Rectangle()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.cardOverlay)
                     .frame(height: 1)
                     .padding(.leading, 52)
             }
@@ -464,19 +471,19 @@ private struct CategoryTile: View {
 
                 Image(systemName: category.icon)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(category.displayName)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(category.tagline)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
 

@@ -9,6 +9,12 @@ struct CardTermsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var onAccepted: () -> Void = {}
+    /// Fired when the sheet closes without agreement — dragged away or backed
+    /// out of. Without this, declining the terms silently left the customer on
+    /// a card-creation screen they had no right to be on.
+    var onDeclined: () -> Void = {}
+
+    @State private var didAccept: Bool = false
 
     @State private var agreed: Bool = false
 
@@ -20,7 +26,7 @@ struct CardTermsSheet: View {
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Theme.ink)
 
-                Text("Spend online or in-store with a fresh card number — instantly. Review the terms below to continue.")
+                Text("Spend online with a fresh card number — ready straight away. Review the terms below to continue.")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Theme.grayText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -34,22 +40,33 @@ struct CardTermsSheet: View {
                     termRow(
                         icon: "creditcard.fill",
                         title: "Issued by Ahoy Bank",
-                        body: "Your card is regulated under UAE Central Bank rules. It can be used wherever Visa is accepted online and via Apple Pay / Google Pay."
+                        // Wallet provisioning is out of scope for R0, so this
+                        // no longer promises Apple Pay / Google Pay.
+                        body: "Your card is regulated under UAE Central Bank rules and works anywhere online that accepts Visa."
                     )
                     termRow(
                         icon: "shield.lefthalf.filled",
                         title: "Always under your control",
-                        body: "Freeze the card in one tap. Block it permanently if you suspect fraud — we'll route the remaining balance back to your wallet."
+                        // Was: "Block it permanently… we'll route the remaining
+                        // balance back to your wallet" — which only makes sense
+                        // if the card held money. It doesn't.
+                        body: "Freeze the card any time — payments stop, but the card stays valid and the number doesn't change. Delete it and it ends for good."
                     )
                     termRow(
                         icon: "lock.shield.fill",
-                        title: "Limits & verification",
-                        body: "Each transaction is authorised with Face ID or 3-D Secure. You can adjust monthly limits anytime in Settings."
+                        title: "Spending limits",
+                        // Was wrong three ways: it used the word "authorised",
+                        // hardcoded "monthly", and pointed at Settings. Limits
+                        // are per card, and the ceiling is the employer's.
+                        body: "Your employer sets a limit across your whole wallet. You can set a lower limit on each card, and change it whenever you like."
                     )
                     termRow(
                         icon: "doc.text.fill",
                         title: "Fees & disclosures",
-                        body: "Free issuance for the first card. AED 5 fee per additional card. FX margin applies on non-AED purchases."
+                        // Doesn't hardcode a price. Cards are free today and
+                        // may not be later; the create screen shows the actual
+                        // cost from the store before anything is made.
+                        body: "Anything a card costs is shown before you make it. An FX margin applies on payments that aren't in AED."
                     )
 
                     Text("By continuing, you confirm you've read and agree to the **Cardholder Agreement**, **Privacy Notice**, and **Schedule of Fees** issued by Ahoy Bank.")
@@ -101,6 +118,7 @@ struct CardTermsSheet: View {
 
                 Button {
                     guard agreed else { return }
+                    didAccept = true
                     onAccepted()
                     dismiss()
                 } label: {
@@ -121,6 +139,7 @@ struct CardTermsSheet: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
+        .onDisappear { if !didAccept { onDeclined() } }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(20)

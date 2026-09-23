@@ -34,23 +34,24 @@ struct HelpCategoryView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    hero.scrollEdgeBlur()
-                    searchField.scrollEdgeBlur()
-                    articleList.scrollEdgeBlur()
+                    hero
+                    searchField
+                    articleList
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 12)
                 .padding(.bottom, 60)
             }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectStyle(.soft, for: .bottom)
+            .scrollEdgeBlur()
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             topBar
                 .padding(.horizontal, 19)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
+                .headerBlurBackground()
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -65,7 +66,7 @@ struct HelpCategoryView: View {
         ZStack {
             Text(category.displayName)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .padding(.horizontal, 70)
 
@@ -105,7 +106,7 @@ struct HelpCategoryView: View {
 
                 Image(systemName: category.icon)
                     .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -114,10 +115,10 @@ struct HelpCategoryView: View {
                     .foregroundStyle(category.tint)
                 Text("\(store.articles(in: category).count) articles")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Read at your own pace, or search to jump straight in.")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -138,24 +139,24 @@ struct HelpCategoryView: View {
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Theme.textSecondary)
 
             TextField(
                 "",
                 text: $query,
-                prompt: Text("Search in \(category.displayName)").foregroundStyle(.white.opacity(0.7))
+                prompt: Text("Search in \(category.displayName)").foregroundStyle(Theme.textSecondary)
             )
             .focused($searchFocused)
             .submitLabel(.done)
             .onSubmit { searchFocused = false }
             .textFieldStyle(.plain)
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.textPrimary)
             .tint(.white)
 
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -200,7 +201,7 @@ struct HelpCategoryView: View {
 
             Text("No matches in this category")
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             Text("Try a different keyword, or browse other topics from the Help home.")
                 .font(.system(size: 12, weight: .medium))
@@ -234,7 +235,7 @@ private struct ArticleListRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(article.question)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -260,7 +261,7 @@ private struct ArticleListRow: View {
                                 Text("\(mins) min read")
                                     .font(.system(size: 10, weight: .medium))
                             }
-                            .foregroundStyle(.white.opacity(0.55))
+                            .foregroundStyle(Theme.textSecondary)
                         }
                     }
                 }
@@ -277,7 +278,7 @@ private struct ArticleListRow: View {
 
             if showDivider {
                 Rectangle()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.cardOverlay)
                     .frame(height: 1)
                     .padding(.leading, 40)
             }

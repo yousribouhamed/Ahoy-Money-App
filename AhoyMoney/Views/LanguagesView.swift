@@ -20,7 +20,7 @@ struct LanguagesView: View {
                 ZStack {
                     Text("Languages")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {
@@ -45,7 +45,7 @@ struct LanguagesView: View {
                 VStack(alignment: .leading, spacing: 32) {
                     Text("Select your preferred language")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     languageOptionsCard
                 }
@@ -84,7 +84,7 @@ struct LanguagesView: View {
                         RadioDot(selected: selected == lang)
                         Text(lang.rawValue)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
                         Spacer()
                     }
                     .contentShape(Rectangle())

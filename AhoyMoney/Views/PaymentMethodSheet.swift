@@ -63,7 +63,7 @@ struct PaymentMethodSheet: View {
             } label: {
                 Text("Add")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(Color.black, in: .capsule)
             }

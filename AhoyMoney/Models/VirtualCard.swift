@@ -113,27 +113,77 @@ private extension LinearGradient {
 
 // MARK: - Status
 
+/// R0 is virtual-only, and virtual cards are ready the moment they're made —
+/// so there is no pending or issuing state. A create call that fails never
+/// produces a card, so failure is a transient error in the create flow rather
+/// than a status a card can hold.
+///
+/// `blocked` deliberately does not exist: account-level suspension blocks the
+/// whole wallet and every card at once, and belongs to a separate journey.
 enum CardStatus: Hashable {
     case active
     case frozen
-    case blocked
+    case expired
+}
+
+// MARK: - Limits
+
+/// How often a spending limit resets.
+enum LimitPeriod: String, CaseIterable, Hashable, Identifiable {
+    case daily, weekly, monthly, never
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .daily:   return "Daily"
+        case .weekly:  return "Weekly"
+        case .monthly: return "Monthly"
+        case .never:   return "Never"
+        }
+    }
+}
+
+/// A limit the **worker** set on one card. It can only ever be lower than the
+/// wallet limit their employer set — there is no route in the app to raise it
+/// above that, and nothing in the UI may read like a request form.
+///
+/// `nil` on a card is a real state: the worker hasn't set one, so only the
+/// wallet limit applies.
+struct CardLimit: Hashable {
+    var amount: Decimal
+    var period: LimitPeriod
+}
+
+/// Spend accumulated against whichever limit is in force.
+///
+/// `lastRefreshed` exists so the UI can say *when* this number was true.
+/// Balances and spend are polled on app open, not streamed, so nothing built
+/// on this may imply a live figure.
+struct CardSpend: Hashable {
+    var amount: Decimal = 0
+    var resetsOn: Date? = nil
+    var lastRefreshed: Date = Date()
 }
 
 // MARK: - Card
 
 /// A single issued virtual card.
+///
+/// Note what is **not** here: a balance. A wallet holds one balance and every
+/// card reaches that same balance, so money lives on `WalletStore` and nowhere
+/// else. More cards never means more money.
 struct VirtualCard: Identifiable, Hashable {
     let id: UUID
     var label: String                 // e.g. "Travel", "Subscriptions"
     var design: CardDesign
     var status: CardStatus
-    var balance: Decimal              // available balance on this card
-    var monthlyLimit: Decimal         // soft limit for visual progress bar
-    var spentThisMonth: Decimal
+    var limit: CardLimit?             // worker's own limit; nil = wallet limit only
+    var spend: CardSpend
     var last4: String                 // visible without reveal
-    var fullNumber: String            // shown only after Face ID reveal
+    var fullNumber: String            // shown only after reveal
     var expiry: String                // e.g. "08/29"
-    var cvv: String                   // shown only after Face ID reveal
+    var cvv: String                   // shown only after reveal
     var cardholderName: String        // embossed on the card
     var issuedAt: Date
 
@@ -142,9 +192,8 @@ struct VirtualCard: Identifiable, Hashable {
         label: String,
         design: CardDesign,
         status: CardStatus = .active,
-        balance: Decimal,
-        monthlyLimit: Decimal = 5000,
-        spentThisMonth: Decimal = 0,
+        limit: CardLimit? = nil,
+        spend: CardSpend = CardSpend(),
         last4: String,
         fullNumber: String,
         expiry: String,
@@ -156,9 +205,8 @@ struct VirtualCard: Identifiable, Hashable {
         self.label = label
         self.design = design
         self.status = status
-        self.balance = balance
-        self.monthlyLimit = monthlyLimit
-        self.spentThisMonth = spentThisMonth
+        self.limit = limit
+        self.spend = spend
         self.last4 = last4
         self.fullNumber = fullNumber
         self.expiry = expiry
@@ -180,31 +228,98 @@ struct VirtualCard: Identifiable, Hashable {
 
 // MARK: - Store
 
+/// What a new card costs the worker.
+///
+/// Cards are free today but may be priced later, so the create flow always asks
+/// the store for a price and renders whatever comes back. Nothing hardcodes
+/// "free" at a call site.
+enum CardPrice: Hashable {
+    case free
+    case amount(Decimal)
+
+    var isFree: Bool { self == .free }
+}
+
 /// Process-wide store of issued virtual cards. Seeded with one default card so
 /// the wallet always has something to show on first run.
-@Observable
-final class VirtualCardStore {
-    var cards: [VirtualCard] = [
+extension VirtualCard {
+    /// The card that used to be seeded into the store. Kept for demos and
+    /// previews, but no longer handed to every new account.
+    static var demoSample: VirtualCard {
         VirtualCard(
             label: "Everyday",
             design: .aurora,
             status: .active,
-            balance: 1_250.50,
-            monthlyLimit: 5_000,
-            spentThisMonth: 1_320,
+            limit: CardLimit(amount: 2_000, period: .monthly),
+            spend: CardSpend(
+                amount: 1_320,
+                resetsOn: Calendar.current.date(byAdding: .month, value: 1, to: Date()),
+                lastRefreshed: Date()
+            ),
             last4: "4421",
             fullNumber: "4242 4242 4242 4421",
             expiry: "08/29",
             cvv: "342",
             cardholderName: "YOUSRI BOUHAMED"
         )
-    ]
+    }
+}
+
+@Observable
+final class VirtualCardStore {
+    /// Cards cost us money to issue, so a worker can hold only so many.
+    /// Provisional — the final number is the PO's call, so it lives here rather
+    /// than as a literal at the call sites.
+    var maxCards: Int = 3
+
+    /// Price of issuing the next card. Free for now.
+    var priceOfNextCard: CardPrice = .free
+
+    /// Empty by default. A card is never issued automatically — the customer
+    /// makes one, which is why the dashboard has a card-shaped empty slot
+    /// rather than artwork for a card nobody asked for.
+    var cards: [VirtualCard] = []
+
+    /// A worker can always make another card until they hit the cap.
+    var canCreateCard: Bool { cards.count < maxCards }
+
+    /// How many slots are left. Named rather than computed at the call sites so
+    /// the at-limit copy can say the number instead of implying it.
+    var slotsRemaining: Int { max(0, maxCards - cards.count) }
+
+    /// Issuing talks to the processor and can fail.
+    ///
+    /// Modelled as a seam, like the identity check: the real call replaces
+    /// `issue` and nothing else moves. Failure is never terminal here — a card
+    /// that didn't issue can always be tried again, which is why there's no
+    /// cooldown and no support route on that screen.
+    enum IssueOutcome {
+        case issued(VirtualCard)
+        /// The processor refused or never answered. The customer sees one
+        /// message and one button; the reason is for us, not for them.
+        case failed
+    }
+
+    /// Swapped for the processor call when it exists.
+    var issuer: CardIssuer = MockCardIssuer()
+
+    func issue(label: String, design: CardDesign, cardholderName: String) async -> IssueOutcome {
+        guard canCreateCard else { return .failed }
+        let outcome = await issuer.issue(
+            label: label, design: design, cardholderName: cardholderName
+        )
+        if case let .issued(card) = outcome { add(card) }
+        return outcome
+    }
 
     /// Inserts at the top so the just-issued card is featured first.
     func add(_ card: VirtualCard) {
         cards.insert(card, at: 0)
     }
 
+    /// Deleting is permanent and is **never** blocked — not even on the last
+    /// card. A worker who deletes everything lands on the empty state and can
+    /// make another, which is also how they change their card number.
     func remove(_ card: VirtualCard) {
         cards.removeAll { $0.id == card.id }
     }
@@ -224,6 +339,32 @@ final class VirtualCardStore {
         cards[i].status = (cards[i].status == .frozen) ? .active : .frozen
     }
 
+    // MARK: - Edits the worker can make any time
+
+    func rename(_ card: VirtualCard, to label: String) {
+        guard let i = cards.firstIndex(where: { $0.id == card.id }) else { return }
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        cards[i].label = trimmed.isEmpty ? cards[i].label : String(trimmed.prefix(24))
+    }
+
+    func setDesign(_ card: VirtualCard, to design: CardDesign) {
+        guard let i = cards.firstIndex(where: { $0.id == card.id }) else { return }
+        cards[i].design = design
+    }
+
+    /// Sets the worker's own limit on a card, clamped so it can never exceed the
+    /// wallet limit their employer set. Pass `nil` to clear it, which leaves only
+    /// the wallet limit in force.
+    func setLimit(_ card: VirtualCard, to limit: CardLimit?, walletLimit: Decimal) {
+        guard let i = cards.firstIndex(where: { $0.id == card.id }) else { return }
+        guard var limit else {
+            cards[i].limit = nil
+            return
+        }
+        limit.amount = min(limit.amount, walletLimit)
+        cards[i].limit = limit
+    }
+
     /// Generates a random-but-stable demo card. Real implementation would call the issuer API.
     static func makeMockCard(label: String, design: CardDesign, cardholderName: String) -> VirtualCard {
         let last4 = String(format: "%04d", Int.random(in: 1000...9999))
@@ -237,14 +378,48 @@ final class VirtualCardStore {
         return VirtualCard(
             label: label.isEmpty ? "Virtual card" : label,
             design: design,
-            balance: 0,
-            monthlyLimit: 5_000,
-            spentThisMonth: 0,
+            limit: nil,          // no worker limit yet — the wallet limit applies
+            spend: CardSpend(),
             last4: last4,
             fullNumber: full,
             expiry: expiry,
             cvv: cvv,
             cardholderName: cardholderName.uppercased()
+        )
+    }
+}
+
+// MARK: - Issuer
+
+/// The processor call that mints a card, behind a protocol.
+///
+/// Issuing is instant when it works — there is no queue and nothing to wait
+/// for, so no screen in this flow may promise a time. What it can do is fail,
+/// and that's the only reason this seam exists.
+protocol CardIssuer {
+    func issue(
+        label: String,
+        design: CardDesign,
+        cardholderName: String
+    ) async -> VirtualCardStore.IssueOutcome
+}
+
+/// Stand-in until the processor is wired up.
+struct MockCardIssuer: CardIssuer {
+    /// Set to drive the failure state while testing it.
+    var alwaysFails: Bool = false
+
+    func issue(
+        label: String,
+        design: CardDesign,
+        cardholderName: String
+    ) async -> VirtualCardStore.IssueOutcome {
+        try? await Task.sleep(for: .milliseconds(700))
+        if alwaysFails { return .failed }
+        return .issued(
+            VirtualCardStore.makeMockCard(
+                label: label, design: design, cardholderName: cardholderName
+            )
         )
     }
 }

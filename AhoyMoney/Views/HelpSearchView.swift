@@ -72,12 +72,12 @@ struct HelpSearchView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(Theme.textSecondary)
 
                 TextField(
                     "",
                     text: $query,
-                    prompt: Text("Search help…").foregroundStyle(.white.opacity(0.7))
+                    prompt: Text("Search help…").foregroundStyle(Theme.textSecondary)
                 )
                 .focused($searchFocused)
                 .submitLabel(.search)
@@ -85,13 +85,13 @@ struct HelpSearchView: View {
                     store.recordSearch(trimmedQuery)
                 }
                 .textFieldStyle(.plain)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .tint(.white)
 
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -121,15 +121,15 @@ struct HelpSearchView: View {
                                     HStack(spacing: 12) {
                                         Image(systemName: "clock.arrow.circlepath")
                                             .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(.white.opacity(0.55))
+                                            .foregroundStyle(Theme.textSecondary)
                                         Text(term)
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(Theme.textPrimary)
                                             .lineLimit(1)
                                         Spacer()
                                         Image(systemName: "arrow.up.left")
                                             .font(.system(size: 11, weight: .semibold))
-                                            .foregroundStyle(.white.opacity(0.55))
+                                            .foregroundStyle(Theme.textSecondary)
                                     }
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 12)
@@ -138,7 +138,7 @@ struct HelpSearchView: View {
 
                                 if idx < store.recentSearches.count - 1 {
                                     Rectangle()
-                                        .fill(Color.white.opacity(0.06))
+                                        .fill(Theme.cardOverlay)
                                         .frame(height: 1)
                                         .padding(.leading, 38)
                                 }
@@ -146,8 +146,7 @@ struct HelpSearchView: View {
                         }
                         .background(Theme.card, in: .rect(cornerRadius: 14))
                     }
-                    .scrollEdgeBlur()
-                }
+                                    }
 
                 section(title: "Trending now", icon: "flame.fill") {
                     FlowChips(
@@ -156,8 +155,7 @@ struct HelpSearchView: View {
                         query = picked
                     }
                 }
-                .scrollEdgeBlur()
-
+                
                 section(title: "Quick categories", icon: "square.grid.2x2.fill") {
                     LazyVGrid(
                         columns: [
@@ -174,13 +172,13 @@ struct HelpSearchView: View {
                                             .fill(c.gradient)
                                         Image(systemName: c.icon)
                                             .font(.system(size: 11, weight: .bold))
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(Theme.textPrimary)
                                     }
                                     .frame(width: 28, height: 28)
 
                                     Text(c.displayName)
                                         .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.textPrimary)
                                         .lineLimit(1)
 
                                     Spacer(minLength: 0)
@@ -192,14 +190,13 @@ struct HelpSearchView: View {
                         }
                     }
                 }
-                .scrollEdgeBlur()
-            }
+                            }
             .padding(.horizontal, 22)
             .padding(.bottom, 60)
         }
         .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .scrollEdgeBlur()
     }
 
     // MARK: - Results list
@@ -213,10 +210,10 @@ struct HelpSearchView: View {
                         .foregroundStyle(Theme.accent)
                     Text(results.count == 1 ? "result for" : "results for")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Theme.textSecondary)
                     Text("\u{201C}\(trimmedQuery)\u{201D}")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                 }
 
@@ -241,8 +238,8 @@ struct HelpSearchView: View {
             .padding(.bottom, 60)
         }
         .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .scrollEdgeBlur()
     }
 
     // MARK: - Empty results
@@ -262,7 +259,7 @@ struct HelpSearchView: View {
 
             Text("No matches for \u{201C}\(trimmedQuery)\u{201D}")
                 .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.center)
 
             Text("Try different keywords, or ask our team — they'll get you the right answer.")
@@ -309,7 +306,7 @@ struct HelpSearchView: View {
                     .foregroundStyle(Theme.accent)
                 Text(title)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
             }
             content()
@@ -348,20 +345,20 @@ private struct ResultRow: View {
                         .fill(article.category.gradient)
                     Image(systemName: article.category.icon)
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 .frame(width: 32, height: 32)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(article.question)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
 
                     Text(snippet)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                 }
@@ -378,7 +375,7 @@ private struct ResultRow: View {
 
             if showDivider {
                 Rectangle()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.cardOverlay)
                     .frame(height: 1)
                     .padding(.leading, 58)
             }
@@ -402,14 +399,14 @@ private struct FlowChips: View {
                     Button { action(item) } label: {
                         Text(item)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(
                                 Capsule()
-                                    .fill(Color.white.opacity(0.08))
+                                    .fill(Theme.cardOverlay)
                                     .overlay(
-                                        Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                                        Capsule().strokeBorder(Theme.strokeSubtle, lineWidth: 1)
                                     )
                             )
                     }

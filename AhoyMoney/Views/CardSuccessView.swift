@@ -41,15 +41,26 @@ struct CardSuccessView: View {
                 VStack(spacing: 8) {
                     Text("Your card is ready")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(.white)
-                    Text("Use it instantly online or add it to Apple Pay.")
+                        .foregroundStyle(Theme.textPrimary)
+                    // Wallet provisioning is out of scope for R0, so nothing
+                    // here promises it. The second sentence is the last chance
+                    // to say where the money comes from before the worker
+                    // starts spending on a card they've just made.
+                    Text("Use it online straight away. It spends from your wallet balance, the same as your other cards.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Theme.accent)
                         .multilineTextAlignment(.center)
                 }
 
-                // Card flips into view.
-                CardArtwork(card: card, size: CGSize(width: 320, height: 200), tiltEnabled: true)
+                // Card flips into view, at the same width it had in the
+                // preview a moment ago — it shouldn't shrink on arrival.
+                Color.clear
+                    .aspectRatio(340.0 / 212.0, contentMode: .fit)
+                    .overlay {
+                        GeometryReader { geo in
+                            CardArtwork(card: card, size: geo.size, tiltEnabled: true)
+                        }
+                    }
                     .rotation3DEffect(
                         .degrees(animateIn ? 0 : 90),
                         axis: (x: 0, y: 1, z: 0)
@@ -60,7 +71,9 @@ struct CardSuccessView: View {
                 Spacer(minLength: 0)
 
                 VStack(spacing: 10) {
-                    NavigationLink(value: card) {
+                    Button {
+                        goToDetail = true
+                    } label: {
                         Text("View card")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.black)
@@ -74,7 +87,7 @@ struct CardSuccessView: View {
                     } label: {
                         Text("Done")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.plain)
@@ -86,7 +99,11 @@ struct CardSuccessView: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(for: VirtualCard.self) { card in
+        // Driven by an explicit flag rather than `NavigationLink(value:)`.
+        // A value-based link needs a destination registered for the type on a
+        // view that is still active in the stack; the rest of this app pushes
+        // with `isPresented`, so this matches what already works here.
+        .navigationDestination(isPresented: $goToDetail) {
             CardDetailView(cardId: card.id)
         }
         .onAppear {

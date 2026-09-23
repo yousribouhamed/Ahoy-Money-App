@@ -4,10 +4,9 @@ import SwiftUI
 ///
 /// Layout:
 /// • Top bar — back, "Card", more menu (rename, change design, terminate)
-/// • Hero — `CardArtwork` with 3D tilt, status pill underneath
+/// • Hero — `CardArtwork` with 3D tilt; tap to flip for the security code
 /// • Balance + monthly spend progress
-/// • Quick action row — Top Up, Send, Freeze/Unfreeze, Details
-/// • Card details card — number/CVV revealed via Face ID toggle
+/// • Quick action row — Top Up, Freeze/Unfreeze, Details
 /// • Recent transactions
 /// • Block (terminate) button — destructive
 ///
@@ -16,19 +15,50 @@ import SwiftUI
 struct CardDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(VirtualCardStore.self) private var store
-    @Environment(AppRouter.self) private var router
+    @Environment(WalletStore.self) private var wallet
+    // No `AppRouter` any more — the Send tile was its only reader.
+    @Environment(CardTransactionStore.self) private var cardTransactions
 
     let cardId: UUID
 
+    /// Which card is on screen. Starts at the one that was tapped, then follows
+    /// the worker as they swipe.
+    @State private var selectedCardId: UUID
+
     @State private var revealed: Bool = false
-    @State private var showBlockConfirm: Bool = false
+
+    /// Which way up the hero card is. The security code is on the back, so
+    /// this is how you get to it.
+    @State private var flipped: Bool = false
+
+    /// How long revealed details stay on screen before hiding themselves.
+    static let revealSeconds = 60
+    @State private var secondsLeft: Int = revealSeconds
+    private let revealTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    @State private var showDeleteConfirm: Bool = false
+    @State private var showRename: Bool = false
+    @State private var showChangeDesign: Bool = false
+    @State private var showLimitEditor: Bool = false
+    @State private var pushedTransaction: CardTransaction? = nil
+    @State private var declinedTransaction: CardTransaction? = nil
+    @State private var showTopUp: Bool = false
     @State private var showToast: Bool = false
     @State private var toastMessage: String = ""
 
+    init(cardId: UUID) {
+        self.cardId = cardId
+        _selectedCardId = State(initialValue: cardId)
+    }
+
     /// Latest copy from the store so freeze / rename / etc. reflect live.
+    ///
+    /// Falls back to the first card because deleting the card you're looking at
+    /// pops this screen — but the view can re-evaluate once before it goes.
     private var card: VirtualCard {
-        store.cards.first(where: { $0.id == cardId })
-            ?? store.cards.first!  // Always at least one demo card seeded.
+        store.cards.first(where: { $0.id == selectedCardId })
+            ?? store.cards.first(where: { $0.id == cardId })
+            ?? store.cards.first!
     }
 
     var body: some View {
@@ -37,45 +67,94 @@ struct CardDetailView: View {
 
             ScrollView {
                 VStack(spacing: 22) {
-                    hero.scrollEdgeBlur()
-                    balanceCard.scrollEdgeBlur()
-                    quickActions.scrollEdgeBlur()
-                    detailsCard.scrollEdgeBlur()
-                    transactionsSection.scrollEdgeBlur()
-                    blockButton.scrollEdgeBlur()
+                    hero
+                    balanceCard
+                    quickActions
+                    transactionsSection
+                    blockButton
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 12)
                 .padding(.bottom, 60)
             }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectStyle(.soft, for: .bottom)
+            .scrollEdgeBlur()
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             topBar
                 .padding(.horizontal, 19)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
+                .headerBlurBackground()
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
-        .confirmationDialog(
-            "Block this card?",
-            isPresented: $showBlockConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Block & remove", role: .destructive) {
-                store.setStatus(card, .blocked)
-                toast("Card blocked")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    store.remove(card)
-                    dismiss()
+        // Deleting is permanent, has no undo and no toast, so every consequence
+        // is stated before the button rather than discovered after it.
+        //
+        // Deleting is never blocked — not even on the last card. A worker who
+        // deletes everything lands on the empty state and makes another, which
+        // is also how they change their card number.
+        // A bottom sheet, matching the other card controls. The consequences run
+        // to three paragraphs — an alert crams them and a confirmation dialog
+        // pushed the buttons off-screen entirely.
+        .sheet(item: $pushedTransaction) { tx in
+            CardTransactionSheet(transaction: tx)
+        }
+        .sheet(item: $declinedTransaction) { tx in
+            if let reason = tx.declineReason {
+                DeclineSheet(
+                    reason: reason,
+                    merchant: tx.merchant,
+                    amount: tx.amount
+                ) { kind in
+                    switch kind {
+                    case .topUp:       showTopUp = true
+                    case .changeLimit: showLimitEditor = true
+                    case .unfreeze:
+                        store.setStatus(card, .active)
+                        toast("Card unfrozen")
+                    }
                 }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Blocking is permanent. The card number can't be reactivated. Any remaining balance returns to your wallet.")
+        }
+        .sheet(isPresented: $showTopUp) {
+            TopUpView().presentationDragIndicator(.hidden)
+        }
+        .task(id: card.id) {
+            // Demo data stands in for the processor call until it's wired.
+            guard !cardTransactions.hasAny(for: card.id), card.spend.amount > 0 else { return }
+            cardTransactions.transactions += CardTransactionStore.seed(for: card.id)
+            cardTransactions.lastRefreshed = Date()
+        }
+        .sheet(isPresented: $showDeleteConfirm) {
+            DeleteCardSheet {
+                store.remove(card)
+                dismiss()
+            }
+        }
+        .sheet(isPresented: $showRename) {
+            RenameCardSheet(currentName: card.label) { newName in
+                store.rename(card, to: newName)
+                toast("Card renamed")
+            }
+        }
+        .sheet(isPresented: $showChangeDesign) {
+            ChangeDesignSheet(card: card) { design in
+                store.setDesign(card, to: design)
+                toast("Card colour updated")
+            }
+        }
+        .sheet(isPresented: $showLimitEditor) {
+            CardLimitSheet(
+                currentLimit: card.limit,
+                walletLimit: wallet.employerLimit,
+                walletPeriod: wallet.employerLimitPeriod
+            ) { newLimit in
+                store.setLimit(card, to: newLimit, walletLimit: wallet.employerLimit)
+                toast(newLimit == nil ? "Card limit removed" : "Limit updated")
+            }
         }
         .liquidGlassToast(
             isPresented: $showToast,
@@ -90,7 +169,7 @@ struct CardDetailView: View {
         ZStack {
             Text("Card")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button { dismiss() } label: {
@@ -106,15 +185,19 @@ struct CardDetailView: View {
 
                 Menu {
                     Button {
-                        // Rename — placeholder hook (could push an edit sheet).
-                        toast("Rename coming soon")
+                        showRename = true
                     } label: {
                         Label("Rename card", systemImage: "pencil")
                     }
                     Button {
-                        toast("Change design coming soon")
+                        showChangeDesign = true
                     } label: {
-                        Label("Change design", systemImage: "paintpalette")
+                        Label("Change colour", systemImage: "paintpalette")
+                    }
+                    Button {
+                        showLimitEditor = true
+                    } label: {
+                        Label("Spending limit", systemImage: "gauge.with.dots.needle.50percent")
                     }
                     Divider()
                     if card.status == .frozen {
@@ -133,9 +216,9 @@ struct CardDetailView: View {
                         }
                     }
                     Button(role: .destructive) {
-                        showBlockConfirm = true
+                        showDeleteConfirm = true
                     } label: {
-                        Label("Block & terminate", systemImage: "lock.fill")
+                        Label("Delete card", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -152,71 +235,224 @@ struct CardDetailView: View {
 
     // MARK: - Hero
 
+    /// Card at the container's full width, holding the artwork's own aspect.
+    ///
+    /// No status badge underneath: "Active" is the normal case and doesn't need
+    /// announcing, and the two states that *do* matter — frozen and expired —
+    /// already take over the card art itself.
     private var hero: some View {
         VStack(spacing: 12) {
-            CardArtwork(
-                card: card,
-                size: CGSize(width: 340, height: 212),
-                revealed: revealed,
-                tiltEnabled: true
-            )
-            .padding(.top, 6)
+            Color.clear
+                .aspectRatio(340.0 / 212.0, contentMode: .fit)
+                .overlay {
+                    GeometryReader { geo in
+                        // Swiping the card is the way between cards. Everything
+                        // below the hero — balance, limit, details, activity —
+                        // follows `selectedCardId`, so the whole screen moves
+                        // with the swipe rather than just the artwork.
+                        TabView(selection: $selectedCardId) {
+                            ForEach(store.cards) { c in
+                                CardArtwork(
+                                    card: c,
+                                    size: geo.size,
+                                    // Only the card in front can be revealed;
+                                    // neighbours never render a live number.
+                                    revealed: revealed && c.id == selectedCardId,
+                                    tiltEnabled: true,
+                                    flipped: flipped && c.id == selectedCardId,
+                                    showsIdentity: true
+                                )
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.55, dampingFraction: 0.8)) {
+                                        flipped.toggle()
+                                    }
+                                }
+                                .tag(c.id)
+                            }
+                        }
+                        .tabViewStyle(.page(indexDisplayMode: .never))
+                    }
+                }
 
-            // Status pill.
-            StatusPill(status: card.status)
+            if store.cards.count > 1 {
+                pageIndicator
+            }
+
+            // Name, status and number are printed on the card now, so the row
+            // that used to sit here is gone. What is left is the one thing the
+            // artwork cannot say for itself: how to turn it over, and how long
+            // the numbers have before they hide again.
+            cardFooter
+        }
+        .padding(.top, 6)
+        // Revealed details must not survive a swipe — the number on screen
+        // would belong to a card the worker is no longer looking at. Nor
+        // should the card stay face-down under a different card's back.
+        .onChange(of: selectedCardId) { _, _ in
+            withAnimation(.easeOut(duration: 0.2)) {
+                revealed = false
+                flipped = false
+            }
+        }
+        // The countdown used to live on the details card. That card is gone;
+        // the timer still has to run.
+        .onReceive(revealTimer) { _ in
+            guard revealed else { return }
+            if secondsLeft > 1 {
+                secondsLeft -= 1
+            } else {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    revealed = false
+                    flipped = false
+                }
+            }
+        }
+    }
+
+    /// Flip hint, copy button and hide-countdown — the three things that used
+    /// to be spread across a separate details card.
+    private var cardFooter: some View {
+        HStack(spacing: 10) {
+            Label(
+                flipped ? "Tap to see the front" : "Tap the card for the CVV",
+                systemImage: "arrow.trianglehead.2.clockwise.rotate.90"
+            )
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Theme.textSecondary)
+
+            Spacer(minLength: 0)
+
+            if revealed {
+                // Typing a PAN off a screen that is about to blank itself is
+                // how digits get transposed, so the copy stays one tap away.
+                Button {
+                    let value = flipped ? card.cvv : card.fullNumber.filter(\.isNumber)
+                    UIPasteboard.general.string = value
+                    toast(flipped ? "Security code copied" : "Card number copied")
+                } label: {
+                    Label(flipped ? "Copy CVV" : "Copy number", systemImage: "doc.on.doc")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("\(secondsLeft)s")
+                        .font(.system(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                }
+                .foregroundStyle(secondsLeft <= 10 ? Theme.warning : Theme.textSecondary)
+                .contentTransition(.numericText())
+            }
+        }
+        .padding(.top, 2)
+        .animation(.easeOut(duration: 0.2), value: revealed)
+    }
+
+    private var pageIndicator: some View {
+        HStack(spacing: 6) {
+            ForEach(store.cards) { c in
+                Capsule()
+                    .fill(c.id == selectedCardId ? Theme.accent : Theme.strokeSubtle)
+                    .frame(width: c.id == selectedCardId ? 18 : 6, height: 6)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedCardId)
+            }
         }
     }
 
     // MARK: - Balance
 
+    /// Wallet balance + how much of this card's limit is left.
+    ///
+    /// The balance shown here is the **wallet's**, not the card's — every card
+    /// reaches the same money, so the subtitle says so outright. This is the
+    /// screen where a worker with more than one card would otherwise conclude
+    /// they have more than one pot of money.
     private var balanceCard: some View {
-        let limit = NSDecimalNumber(decimal: card.monthlyLimit).doubleValue
-        let spent = NSDecimalNumber(decimal: card.spentThisMonth).doubleValue
-        let progress = limit > 0 ? min(spent / limit, 1.0) : 0
+        let effective = wallet.effectiveLimit(for: card)
+        let limitValue = NSDecimalNumber(decimal: effective.amount).doubleValue
+        let spent = NSDecimalNumber(decimal: card.spend.amount).doubleValue
+        let progress = limitValue > 0 ? min(spent / limitValue, 1.0) : 0
 
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Available balance")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .tracking(0.5)
-                    Text(formatCurrency(card.balance))
+            // Everything in this block is the wallet's, not the card's, so it
+            // says so once at the top. The card's own name used to sit here as
+            // a pill, which made a shared balance look like it belonged to one
+            // card — the exact thing "Shared by all your cards" exists to deny.
+            HStack(spacing: 6) {
+                Image(systemName: "wallet.bifold.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("YOUR WALLET")
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(1)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Theme.textSecondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Available balance")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .tracking(0.5)
+                HStack(spacing: 7) {
+                    CurrencyIcon(size: 22, color: Theme.textPrimary)
+                    Text(formatCurrency(wallet.balanceDecimal))
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .monospacedDigit()
                 }
-                Spacer()
-                Text(card.label)
-                    .font(.system(size: 11, weight: .heavy))
-                    .tracking(1.2)
-                    .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Theme.accent.opacity(0.15), in: .capsule)
+                Text("Shared by all your cards")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
             }
+
+            Divider().background(Theme.cardOverlay)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Spent this month")
+                    // Says whose ceiling this is. With no card limit set, the
+                    // card spends against the wallet's — which is why the label
+                    // switches rather than always saying "Card limit".
+                    Text(effective.isWalletLimit
+                         ? "Wallet limit · shared"
+                         : "This card's limit")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Text("\(formatCurrency(card.spentThisMonth)) / \(formatCurrency(card.monthlyLimit))")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .monospacedDigit()
+                    HStack(spacing: 4) {
+                        CurrencyIcon(size: 11, color: Theme.textPrimary)
+                        Text("\(formatCurrency(card.spend.amount)) of \(formatCurrency(effective.amount)) used")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .monospacedDigit()
+                    }
                 }
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.08))
+                        Capsule().fill(Theme.cardOverlay)
                         Capsule()
                             .fill(progress >= 0.85 ? Theme.warning : Theme.accent)
                             .frame(width: max(8, geo.size.width * progress))
                     }
                 }
                 .frame(height: 6)
+
+                // Spend is polled on app open, not streamed — so say when this
+                // was true. A worker who reads a stale figure as live gets
+                // declined at a till holding a screen that said they had room.
+                HStack(spacing: 4) {
+                    if let resets = card.spend.resetsOn, effective.period != .never {
+                        Text("Resets \(Self.dayFormatter.string(from: resets))")
+                        Text("·")
+                    }
+                    Text("Updated when you opened the app")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 2)
             }
         }
         .padding(16)
@@ -224,16 +460,25 @@ struct CardDetailView: View {
         .background(Theme.card, in: .rect(cornerRadius: 18))
     }
 
+    static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d MMMM"
+        return f
+    }()
+
     // MARK: - Quick actions
 
+    /// Three tiles, not four.
+    ///
+    /// **Send is gone.** Sending money is a wallet action — it never touched
+    /// this card, and the tile proved it: the handler only switched tabs and
+    /// dismissed the screen. Offering it here implied you send *from a card*,
+    /// which is the same misunderstanding the "Shared by all your cards" line
+    /// above exists to prevent.
     private var quickActions: some View {
         HStack(spacing: 10) {
             QuickActionTile(icon: "plus", title: "Top Up") {
                 toast("Top up flow coming soon")
-            }
-            QuickActionTile(icon: "paperplane.fill", title: "Send") {
-                router.selectedTab = .send
-                dismiss()
             }
             QuickActionTile(
                 icon: card.status == .frozen ? "sun.max.fill" : "snowflake",
@@ -251,10 +496,11 @@ struct CardDetailView: View {
                 title: revealed ? "Hide" : "Details"
             ) {
                 if revealed {
-                    revealed = false
+                    withAnimation(.easeOut(duration: 0.2)) { revealed = false }
                 } else {
                     BiometricAuth.authenticate(reason: "Authenticate to reveal card details") { success in
                         if success {
+                            secondsLeft = Self.revealSeconds
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                                 revealed = true
                             }
@@ -265,117 +511,68 @@ struct CardDetailView: View {
         }
     }
 
-    // MARK: - Card details (number, expiry, cvv)
+    // MARK: - Transactions
 
-    private var detailsCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("CARD DETAILS")
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(1)
-                    .foregroundStyle(.white.opacity(0.55))
-                Spacer()
-                if revealed {
-                    Button {
-                        UIPasteboard.general.string = card.fullNumber.filter(\.isNumber)
-                        toast("Card number copied")
-                    } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 6)
-
-            VStack(spacing: 0) {
-                detailRow(
-                    label: "Card number",
-                    value: revealed ? card.formattedNumber : "•••• •••• •••• \(card.last4)",
-                    monospaced: true
-                )
-                Divider().background(Color.white.opacity(0.08))
-                    .padding(.leading, 14)
-
-                HStack(spacing: 0) {
-                    detailRow(
-                        label: "Expires",
-                        value: card.expiry,
-                        monospaced: true,
-                        compact: true
-                    )
-                    .frame(maxWidth: .infinity)
-
-                    Rectangle()
-                        .fill(Color.white.opacity(0.06))
-                        .frame(width: 1, height: 28)
-
-                    detailRow(
-                        label: "CVV",
-                        value: revealed ? card.cvv : "•••",
-                        monospaced: true,
-                        compact: true
-                    )
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity)
-        .background(Theme.card, in: .rect(cornerRadius: 18))
-    }
-
-    @ViewBuilder
-    private func detailRow(label: String, value: String, monospaced: Bool = false, compact: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.55))
-                .tracking(0.4)
-            Text(value)
-                .font(.system(size: compact ? 14 : 16, weight: .semibold, design: monospaced ? .monospaced : .default))
-                .foregroundStyle(.white)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, compact ? 10 : 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Transactions placeholder
-
+    /// Card-scoped activity. Scoping is native on the processor call, so this is
+    /// fetched per card rather than filtered out of an account-wide list.
     private var transactionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let rows = cardTransactions.transactions(for: card.id)
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Recent activity")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
-                Text("View all")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
+                if !rows.isEmpty {
+                    Text("View all")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
             }
 
-            if mockTransactions.isEmpty {
-                HStack {
-                    Image(systemName: "tray")
-                        .foregroundStyle(.white.opacity(0.5))
-                    Text("No transactions yet — start spending with this card.")
+            if cardTransactions.isLoading {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.accent)
+                    Text("Loading your activity…")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .background(Theme.card, in: .rect(cornerRadius: 14))
+            } else if rows.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "tray")
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("Nothing on this card yet. Payments show up here as soon as you make them.")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity)
                 .background(Theme.card, in: .rect(cornerRadius: 14))
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(mockTransactions.enumerated()), id: \.offset) { idx, t in
-                        TxRow(merchant: t.0, subtitle: t.1, amount: t.2)
-                        if idx < mockTransactions.count - 1 {
-                            Divider().background(Color.white.opacity(0.06))
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { idx, tx in
+                        Button {
+                            // A decline is its own moment — actionable, not a
+                            // receipt. Everything else opens the detail.
+                            if tx.declineReason != nil {
+                                declinedTransaction = tx
+                            } else {
+                                pushedTransaction = tx
+                            }
+                        } label: {
+                            CardTxRow(transaction: tx)
+                        }
+                        .buttonStyle(.plain)
+
+                        if idx < rows.count - 1 {
+                            Divider().background(Theme.cardOverlay)
                                 .padding(.leading, 56)
                         }
                     }
@@ -385,26 +582,16 @@ struct CardDetailView: View {
         }
     }
 
-    // Demo content — newly issued cards have nothing.
-    private var mockTransactions: [(String, String, String)] {
-        guard card.spentThisMonth > 0 else { return [] }
-        return [
-            ("Netflix", "Subscription • Today", "-AED 39.00"),
-            ("Carrefour", "Groceries • Yesterday", "-AED 142.50"),
-            ("Apple", "App Store • 2 days ago", "-AED 8.00")
-        ]
-    }
-
-    // MARK: - Block button
+    // MARK: - Delete button
 
     private var blockButton: some View {
         Button {
-            showBlockConfirm = true
+            showDeleteConfirm = true
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "lock.fill")
+                Image(systemName: "trash")
                     .font(.system(size: 14, weight: .semibold))
-                Text("Block & terminate card")
+                Text("Delete card")
                     .font(.system(size: 15, weight: .semibold))
                 Spacer()
             }
@@ -431,51 +618,15 @@ struct CardDetailView: View {
         withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { showToast = true }
     }
 
+    /// Number only — the dirham glyph is drawn as `CurrencyIcon` beside it so
+    /// the currency reads as a symbol rather than the letters "AED".
     private func formatCurrency(_ value: Decimal) -> String {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.minimumFractionDigits = 2
         f.maximumFractionDigits = 2
         let n = NSDecimalNumber(decimal: value)
-        return "AED \(f.string(from: n) ?? "0.00")"
-    }
-}
-
-// MARK: - Status pill
-
-private struct StatusPill: View {
-    let status: CardStatus
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(dot)
-                .frame(width: 6, height: 6)
-            Text(label)
-                .font(.system(size: 11, weight: .heavy))
-                .tracking(1)
-                .foregroundStyle(.white)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Color.white.opacity(0.08), in: .capsule)
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
-    }
-
-    private var label: String {
-        switch status {
-        case .active:  return "ACTIVE"
-        case .frozen:  return "FROZEN"
-        case .blocked: return "BLOCKED"
-        }
-    }
-
-    private var dot: Color {
-        switch status {
-        case .active:  return Color(red: 0.30, green: 0.85, blue: 0.55)
-        case .frozen:  return Color(red: 0.40, green: 0.65, blue: 1.00)
-        case .blocked: return Color(red: 1.0, green: 0.42, blue: 0.42)
-        }
+        return f.string(from: n) ?? "0.00"
     }
 }
 
@@ -492,7 +643,7 @@ private struct QuickActionTile: View {
             VStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Theme.cardOverlay)
                     Image(systemName: icon)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(tint)
@@ -501,7 +652,7 @@ private struct QuickActionTile: View {
 
                 Text(title)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
@@ -512,38 +663,3 @@ private struct QuickActionTile: View {
 }
 
 // MARK: - Tx row
-
-private struct TxRow: View {
-    let merchant: String
-    let subtitle: String
-    let amount: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Color.white.opacity(0.08))
-                Image(systemName: "bag.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-            }
-            .frame(width: 36, height: 36)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(merchant)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text(subtitle)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.accent)
-            }
-
-            Spacer()
-
-            Text(amount)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.white)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-}

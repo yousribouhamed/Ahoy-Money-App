@@ -127,15 +127,14 @@ struct AddBeneficiaryView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         stepBody
-                            .scrollEdgeBlur()
                     }
                     .padding(.horizontal, 22)
                     .padding(.top, 24)
                     .padding(.bottom, 40)
                 }
                 .scrollIndicators(.hidden)
-                .scrollEdgeEffectStyle(.soft, for: .top)
                 .scrollEdgeEffectStyle(.soft, for: .bottom)
+                .scrollEdgeBlur()
 
                 bottomBar
             }
@@ -159,7 +158,7 @@ struct AddBeneficiaryView: View {
         ZStack {
             Text(screenTitle)
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button {
@@ -204,7 +203,7 @@ struct AddBeneficiaryView: View {
                 if let label = stepLabel {
                     Text(label)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
         }
@@ -274,7 +273,7 @@ struct AddBeneficiaryView: View {
             TextField(
                 "",
                 text: $walletPhone,
-                prompt: Text("Phone number").foregroundStyle(.white.opacity(0.45))
+                prompt: Text("Phone number").foregroundStyle(Theme.textSecondary)
             )
             .keyboardType(.phonePad)
             .focused($focused, equals: .phone)
@@ -363,7 +362,7 @@ struct AddBeneficiaryView: View {
             HStack {
                 Text(uaeBank.displayName)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
@@ -376,7 +375,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $uaeAccountHolder,
-            prompt: Text("Full legal name").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("Full legal name").foregroundStyle(Theme.textSecondary)
         )
         .focused($focused, equals: .accountHolder)
         .submitLabel(.next)
@@ -387,7 +386,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $uaeIBAN,
-            prompt: Text("AE07 0331 2345 6789 0123 456").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("AE07 0331 2345 6789 0123 456").foregroundStyle(Theme.textSecondary)
         )
         .keyboardType(.asciiCapable)
         .textInputAutocapitalization(.characters)
@@ -448,7 +447,7 @@ struct AddBeneficiaryView: View {
             TextField(
                 "",
                 text: $uaeMobile,
-                prompt: Text("50 123 4567").foregroundStyle(.white.opacity(0.45))
+                prompt: Text("50 123 4567").foregroundStyle(Theme.textSecondary)
             )
             .keyboardType(.phonePad)
             .focused($focused, equals: .mobile)
@@ -464,7 +463,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $uaeEmail,
-            prompt: Text("Optional").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("Optional").foregroundStyle(Theme.textSecondary)
         )
         .keyboardType(.emailAddress)
         .textInputAutocapitalization(.never)
@@ -485,18 +484,18 @@ struct AddBeneficiaryView: View {
 
         ReviewCard {
             ReviewRow(label: "Bank", value: uaeBank.displayName)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "Account holder", value: uaeAccountHolder)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "IBAN", value: maskIBAN(uaeIBAN))
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "Mobile", value: "\(uaeMobileCode) \(uaeMobile)")
             if !uaeEmail.isEmpty {
-                Divider().background(Color.white.opacity(0.08))
+                Divider().background(Theme.cardOverlay)
                 ReviewRow(label: "Email", value: uaeEmail)
             }
             if !nickname.isEmpty {
-                Divider().background(Color.white.opacity(0.08))
+                Divider().background(Theme.cardOverlay)
                 ReviewRow(label: "Saved as", value: nickname)
             }
         }
@@ -541,7 +540,7 @@ struct AddBeneficiaryView: View {
                 Text(intlCountry.flag).font(.system(size: 22))
                 Text(intlCountry.name)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
@@ -559,7 +558,7 @@ struct AddBeneficiaryView: View {
             HStack {
                 Text(intlCurrency)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
@@ -580,7 +579,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $intlBankName,
-            prompt: Text("e.g. Barclays UK").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("e.g. Barclays UK").foregroundStyle(Theme.textSecondary)
         )
         .focused($focused, equals: .bankName)
         .submitLabel(.next)
@@ -591,7 +590,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $intlSwift,
-            prompt: Text("BARCGB22").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("BARCGB22").foregroundStyle(Theme.textSecondary)
         )
         .textInputAutocapitalization(.characters)
         .autocorrectionDisabled(true)
@@ -607,7 +606,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $intlBankAddress,
-            prompt: Text("Optional").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("Optional").foregroundStyle(Theme.textSecondary)
         )
         .focused($focused, equals: .bankAddr)
         .submitLabel(.done)
@@ -626,7 +625,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $intlFullName,
-            prompt: Text("First and last name").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("First and last name").foregroundStyle(Theme.textSecondary)
         )
         .focused($focused, equals: .fullName)
         .submitLabel(.next)
@@ -637,7 +636,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $intlAccount,
-            prompt: Text("GB29 NWBK 6016 1331 9268 19").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("GB29 NWBK 6016 1331 9268 19").foregroundStyle(Theme.textSecondary)
         )
         .textInputAutocapitalization(.characters)
         .autocorrectionDisabled(true)
@@ -651,7 +650,7 @@ struct AddBeneficiaryView: View {
             TextField(
                 "",
                 text: $intlAddress1,
-                prompt: Text("Street address").foregroundStyle(.white.opacity(0.45))
+                prompt: Text("Street address").foregroundStyle(Theme.textSecondary)
             )
             .focused($focused, equals: .addr1)
             .submitLabel(.next)
@@ -661,7 +660,7 @@ struct AddBeneficiaryView: View {
             TextField(
                 "",
                 text: $intlAddress2,
-                prompt: Text("City, postal code (optional)").foregroundStyle(.white.opacity(0.45))
+                prompt: Text("City, postal code (optional)").foregroundStyle(Theme.textSecondary)
             )
             .focused($focused, equals: .addr2)
             .submitLabel(.next)
@@ -676,7 +675,7 @@ struct AddBeneficiaryView: View {
             TextField(
                 "",
                 text: $intlMobile,
-                prompt: Text("Phone number").foregroundStyle(.white.opacity(0.45))
+                prompt: Text("Phone number").foregroundStyle(Theme.textSecondary)
             )
             .keyboardType(.phonePad)
             .focused($focused, equals: .mobile)
@@ -692,7 +691,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $intlEmail,
-            prompt: Text("Optional").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("Optional").foregroundStyle(Theme.textSecondary)
         )
         .keyboardType(.emailAddress)
         .textInputAutocapitalization(.never)
@@ -711,17 +710,17 @@ struct AddBeneficiaryView: View {
 
         ReviewCard {
             ReviewRow(label: "Country", value: "\(intlCountry.flag)  \(intlCountry.name)")
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "Currency", value: intlCurrency)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "Bank", value: intlBankName)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "SWIFT / BIC", value: intlSwift)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "Beneficiary", value: intlFullName)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "Account", value: intlAccount)
-            Divider().background(Color.white.opacity(0.08))
+            Divider().background(Theme.cardOverlay)
             ReviewRow(label: "Mobile", value: "\(intlMobileCode) \(intlMobile)")
         }
 
@@ -734,7 +733,7 @@ struct AddBeneficiaryView: View {
             HStack {
                 Text(intlPurpose.label)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
@@ -761,7 +760,7 @@ struct AddBeneficiaryView: View {
         TextField(
             "",
             text: $nickname,
-            prompt: Text("e.g. Mum, Office, Sarah").foregroundStyle(.white.opacity(0.45))
+            prompt: Text("e.g. Mum, Office, Sarah").foregroundStyle(Theme.textSecondary)
         )
         .focused($focused, equals: .nickname)
         .submitLabel(.done)
@@ -900,7 +899,7 @@ private struct StepHeader: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
             Text(subtitle)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Theme.accent)
@@ -915,7 +914,7 @@ private struct FieldLabel: View {
     var body: some View {
         Text(text)
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.7))
+            .foregroundStyle(Theme.textSecondary)
             .padding(.bottom, -8)
             .padding(.top, 4)
     }
@@ -937,19 +936,19 @@ private struct DialCodeMenu: View {
             HStack(spacing: 6) {
                 Text(code)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, 16)
             .frame(height: 56)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.cardOverlay)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                            .strokeBorder(Theme.strokeSubtle, lineWidth: 1)
                     )
             )
         }
@@ -997,7 +996,7 @@ private struct LookupStatusView: View {
 
             Text(text)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Theme.textSecondary)
 
             Spacer()
         }
@@ -1008,7 +1007,7 @@ private struct LookupStatusView: View {
                 .fill(Color.white.opacity(0.04))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                        .strokeBorder(Theme.cardOverlayHigh, lineWidth: 1)
                 )
         )
     }
@@ -1033,7 +1032,7 @@ private struct ResolvedUserCard: View {
                 HStack(spacing: 6) {
                     Text(name)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Theme.accent)
@@ -1079,7 +1078,7 @@ private struct ResolvedAccountCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Verified — \(accountName)")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("\(bank)  •  \(masked)")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Theme.accent)
@@ -1121,7 +1120,7 @@ private struct ReviewRow: View {
             Spacer()
             Text(value.isEmpty ? "—" : value)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
         }
@@ -1143,7 +1142,7 @@ private struct FavoriteCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pin to Suggested")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Always keep this contact one tap away.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Theme.accent)

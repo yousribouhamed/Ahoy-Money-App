@@ -30,7 +30,7 @@ private struct TabPlaceholder: View {
             DarkGradientBackground()
             Text(title)
                 .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
         }
     }
 }

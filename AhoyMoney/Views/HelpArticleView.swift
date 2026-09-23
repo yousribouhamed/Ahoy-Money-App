@@ -35,19 +35,19 @@ struct HelpArticleView: View {
             if let article {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        header(article: article).scrollEdgeBlur()
-                        body(for: article).scrollEdgeBlur()
-                        feedbackSection.scrollEdgeBlur()
-                        relatedSection(article: article).scrollEdgeBlur()
-                        contactCTA.scrollEdgeBlur()
+                        header(article: article)
+                        body(for: article)
+                        feedbackSection
+                        relatedSection(article: article)
+                        contactCTA
                     }
                     .padding(.horizontal, 22)
                     .padding(.top, 12)
                     .padding(.bottom, 60)
                 }
                 .scrollIndicators(.hidden)
-                .scrollEdgeEffectStyle(.soft, for: .top)
                 .scrollEdgeEffectStyle(.soft, for: .bottom)
+                .scrollEdgeBlur()
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -55,6 +55,7 @@ struct HelpArticleView: View {
                 .padding(.horizontal, 19)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
+                .headerBlurBackground()
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -74,7 +75,7 @@ struct HelpArticleView: View {
         ZStack {
             Text("Help")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button { dismiss() } label: {
@@ -120,11 +121,11 @@ struct HelpArticleView: View {
             HStack(spacing: 6) {
                 Image(systemName: article.category.icon)
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text(article.category.displayName)
                     .font(.system(size: 11, weight: .bold))
                     .tracking(0.5)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
@@ -132,7 +133,7 @@ struct HelpArticleView: View {
 
             Text(article.question)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             // Meta row.
@@ -157,7 +158,7 @@ struct HelpArticleView: View {
                         Text("\(mins) min read")
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Theme.textSecondary)
                 }
             }
         }
@@ -173,7 +174,7 @@ struct HelpArticleView: View {
                 case .paragraph:
                     Text(attributed(block.text))
                         .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(.white.opacity(0.92))
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineSpacing(3)
 
@@ -185,7 +186,7 @@ struct HelpArticleView: View {
                             .padding(.top, 8)
                         Text(attributed(block.text))
                             .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(.white.opacity(0.92))
+                            .foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(3)
                     }
@@ -198,7 +199,7 @@ struct HelpArticleView: View {
                             .frame(width: 18, alignment: .leading)
                         Text(attributed(block.text))
                             .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(.white.opacity(0.92))
+                            .foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(3)
                     }
@@ -217,7 +218,7 @@ struct HelpArticleView: View {
             if feedback == .none {
                 Text("Was this helpful?")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 HStack(spacing: 10) {
                     feedbackChip(label: "Yes, thanks", systemName: "hand.thumbsup.fill") {
@@ -244,7 +245,7 @@ struct HelpArticleView: View {
                         : "Sorry this wasn't useful — try contacting our team below."
                     )
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                 }
@@ -287,7 +288,7 @@ struct HelpArticleView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Related articles")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
 
                 VStack(spacing: 0) {
                     ForEach(Array(related.enumerated()), id: \.element.id) { idx, r in
@@ -300,13 +301,13 @@ struct HelpArticleView: View {
                                         .fill(r.category.gradient)
                                     Image(systemName: r.category.icon)
                                         .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.textPrimary)
                                 }
                                 .frame(width: 28, height: 28)
 
                                 Text(r.question)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.textPrimary)
                                     .multilineTextAlignment(.leading)
                                     .lineLimit(2)
 
@@ -323,7 +324,7 @@ struct HelpArticleView: View {
 
                         if idx < related.count - 1 {
                             Rectangle()
-                                .fill(Color.white.opacity(0.06))
+                                .fill(Theme.cardOverlay)
                                 .frame(height: 1)
                                 .padding(.leading, 50)
                         }
@@ -340,7 +341,7 @@ struct HelpArticleView: View {
         VStack(spacing: 8) {
             Text("Still stuck?")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
             Text("Our team replies in under 2 minutes.")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.accent)

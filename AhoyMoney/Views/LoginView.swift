@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LoginView: View {
     @Environment(AppRouter.self) private var router
+    @Environment(OnboardingStore.self) private var onboarding
     @Environment(\.dismiss) private var dismiss
 
     enum Field: Hashable { case username, password }
@@ -22,7 +23,7 @@ struct LoginView: View {
                 ZStack {
                     Text("Login")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {
@@ -78,7 +79,16 @@ struct LoginView: View {
 
                     PrimaryWhiteButton(title: "Continue", enabled: isValid) {
                         BiometricAuth.authenticate(reason: "Authenticate to access your wallet") { success in
-                            if success { router.isAuthenticated = true }
+                            guard success else { return }
+                            // Signing in means the account already exists, so
+                            // the wallet is already open. Without this the app
+                            // treated a returning customer as mid-onboarding
+                            // and the dashboard's card area rendered as nothing
+                            // — no card, and no empty slot to make one from.
+                            if onboarding.complianceDecision == nil {
+                                onboarding.approveInstantly()
+                            }
+                            router.isAuthenticated = true
                         }
                     }
 

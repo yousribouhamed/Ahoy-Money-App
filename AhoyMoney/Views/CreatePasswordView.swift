@@ -26,7 +26,7 @@ struct CreatePasswordView: View {
                 ZStack {
                     Text("Setup Wallet")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {

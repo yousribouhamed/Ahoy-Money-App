@@ -4,12 +4,30 @@ struct VerifyOtpView: View {
     @Environment(AppRouter.self) private var router
     @Environment(\.dismiss) private var dismiss
 
+    @Environment(OnboardingStore.self) private var onboarding
+
     @State private var digits: [String] = Array(repeating: "", count: 6)
     @FocusState private var focusedIndex: Int?
     @State private var showTerms: Bool = false
 
+    // MARK: OTP states
+    //
+    // Stand-in for the real verification call. The point of these states isn't
+    // the check itself — it's that a wrong code, an expired code and a resend
+    // each say something different, which none of them did before.
+    private static let acceptedCode = "123456"
+    private static let resendCooldown = 30
+    private static let codeLifetime = 120
+
+    @State private var errorMessage: String? = nil
+    @State private var resendIn: Int = resendCooldown
+    @State private var expiresIn: Int = codeLifetime
+    @State private var shake: CGFloat = 0
+    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
     private var code: String { digits.joined() }
-    private var isValid: Bool { code.count == 6 }
+    private var isExpired: Bool { expiresIn <= 0 }
+    private var isValid: Bool { code.count == 6 && !isExpired }
 
     var body: some View {
         ZStack {
@@ -20,7 +38,7 @@ struct VerifyOtpView: View {
                 ZStack {
                     Text("Register")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {
@@ -59,14 +77,10 @@ struct VerifyOtpView: View {
 
                                 Text("Identity Verification")
                                     .font(.system(size: 20, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.textPrimary)
                             }
 
                             Spacer()
-
-                            Text("Pending Activation")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Theme.warning)
                         }
 
                         Text("A 6-digit verification code has been sent to your phone. Enter it below to verify your identity and activate your wallet.")
@@ -95,9 +109,33 @@ struct VerifyOtpView: View {
                         }
                     }
 
+                    // One line, and it changes with the state: an expired code
+                    // needs a new one, a wrong code needs retyping. Saying
+                    // "invalid" for both would send people to the wrong fix.
+                    if let errorMessage {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(errorMessage)
+                                .font(.system(size: 13, weight: .medium))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .foregroundStyle(Color(red: 1.0, green: 0.42, blue: 0.42))
+                    }
+
                     PrimaryWhiteButton(title: "Verify & Activate", enabled: isValid) {
-                        focusedIndex = nil
-                        showTerms = true
+                        submit()
+                    }
+
+                    resendRow
+                }
+                .onReceive(tick) { _ in
+                    if resendIn > 0 { resendIn -= 1 }
+                    if expiresIn > 0 {
+                        expiresIn -= 1
+                        if expiresIn == 0 {
+                            errorMessage = "That code has expired. Send a new one to carry on."
+                        }
                     }
                 }
                 .padding(.horizontal, 18)
@@ -120,6 +158,61 @@ struct VerifyOtpView: View {
             )
         }
     }
+
+    // MARK: - Resend
+
+    private var resendRow: some View {
+        HStack(spacing: 4) {
+            Text("Didn't get it?")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.subText)
+
+            if resendIn > 0 {
+                // Says when, not just "wait" — a countdown stops people
+                // hammering the button.
+                Text("Send again in \(resendIn)s")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .monospacedDigit()
+            } else {
+                Button("Send a new code") { resend() }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func submit() {
+        focusedIndex = nil
+
+        guard !isExpired else {
+            errorMessage = "That code has expired. Send a new one to carry on."
+            return
+        }
+
+        guard code == Self.acceptedCode else {
+            errorMessage = "That code isn't right. Check your messages and try again."
+            digits = Array(repeating: "", count: 6)
+            withAnimation(.default) { shake += 1 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { focusedIndex = 0 }
+            return
+        }
+
+        errorMessage = nil
+        onboarding.phoneVerified = true
+        showTerms = true
+    }
+
+    private func resend() {
+        digits = Array(repeating: "", count: 6)
+        errorMessage = nil
+        resendIn = Self.resendCooldown
+        expiresIn = Self.codeLifetime
+        focusedIndex = 0
+    }
 }
 
 private struct OTPBox: View {
@@ -131,7 +224,7 @@ private struct OTPBox: View {
             .keyboardType(.numberPad)
             .multilineTextAlignment(.center)
             .font(.system(size: 20, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.textPrimary)
             .tint(Theme.accent)
             .frame(width: 52, height: 52)
             .background(Theme.card, in: .rect(cornerRadius: 16))

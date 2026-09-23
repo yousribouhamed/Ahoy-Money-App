@@ -6,12 +6,8 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		A1000010000000000000001A /* AhoyMoney in Sources */ = {isa = PBXBuildFile; fileRef = A1000020000000000000001A /* AhoyMoney */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
-		A1000070000000000000001A /* AhoyMoney.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AhoyMoney.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000070000000000000001A /* AhoyMoney.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = AhoyMoney.app; path = "Ahoy Money App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -89,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A1000100000000000000001A /* Build configuration list for PBXProject "AhoyMoney" */;
+			buildConfigurationList = A1000100000000000000001A /* Build configuration list for PBXProject "Ahoy Money App" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -123,7 +119,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000010000000000000001A /* AhoyMoney in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,7 +327,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1000100000000000000001A /* Build configuration list for PBXProject "AhoyMoney" */ = {
+		A1000100000000000000001A /* Build configuration list for PBXProject "Ahoy Money App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1000110000000000000001A /* Debug */,

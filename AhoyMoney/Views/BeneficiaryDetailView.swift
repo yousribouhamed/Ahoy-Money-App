@@ -35,26 +35,27 @@ struct BeneficiaryDetailView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
-                    hero.scrollEdgeBlur()
-                    sendCTA.scrollEdgeBlur()
-                    contactCard.scrollEdgeBlur()
-                    bankCard.scrollEdgeBlur()
-                    favoriteCard.scrollEdgeBlur()
-                    deleteButton.scrollEdgeBlur()
+                    hero
+                    sendCTA
+                    contactCard
+                    bankCard
+                    favoriteCard
+                    deleteButton
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 16)
                 .padding(.bottom, 60)
             }
             .scrollIndicators(.hidden)
-            .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectStyle(.soft, for: .bottom)
+            .scrollEdgeBlur()
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             topBar
                 .padding(.horizontal, 19)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
+                .headerBlurBackground()
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
@@ -93,7 +94,7 @@ struct BeneficiaryDetailView: View {
         ZStack {
             Text("Beneficiary")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button { dismiss() } label: {
@@ -150,7 +151,7 @@ struct BeneficiaryDetailView: View {
                     .fill(live.avatarBg)
                 Text(live.initial)
                     .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.95))
+                    .foregroundStyle(Theme.textSecondary)
             }
             .frame(width: 96, height: 96)
             .overlay(alignment: .bottomTrailing) {
@@ -171,7 +172,7 @@ struct BeneficiaryDetailView: View {
                 HStack(spacing: 6) {
                     Text(live.displayName)
                         .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     if live.kind == .wallet {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.system(size: 16, weight: .semibold))
@@ -224,7 +225,7 @@ struct BeneficiaryDetailView: View {
                     ForEach(Array(rows.enumerated()), id: \.element.label) { idx, row in
                         DetailRow(label: row.label, value: row.value, icon: row.icon)
                         if idx < rows.count - 1 {
-                            Divider().background(Color.white.opacity(0.08))
+                            Divider().background(Theme.cardOverlay)
                                 .padding(.leading, 38)
                         }
                     }
@@ -256,7 +257,7 @@ struct BeneficiaryDetailView: View {
                     ForEach(Array(rows.enumerated()), id: \.element.label) { idx, row in
                         DetailRow(label: row.label, value: row.value, icon: row.icon)
                         if idx < rows.count - 1 {
-                            Divider().background(Color.white.opacity(0.08))
+                            Divider().background(Theme.cardOverlay)
                                 .padding(.leading, 38)
                         }
                     }
@@ -311,7 +312,7 @@ struct BeneficiaryDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Pinned to Suggested")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Always keep \(live.displayName) one tap away.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Theme.accent)
@@ -398,7 +399,7 @@ private struct DetailCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title.uppercased())
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.leading, 4)
 
             content
@@ -422,13 +423,13 @@ private struct DetailRow: View {
 
             Text(label)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Theme.textSecondary)
 
             Spacer()
 
             Text(value)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.trailing)
         }

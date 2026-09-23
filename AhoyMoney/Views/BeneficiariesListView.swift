@@ -104,7 +104,7 @@ struct BeneficiariesListView: View {
         ZStack {
             Text("Beneficiaries")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button { dismiss() } label: {
@@ -143,20 +143,20 @@ struct BeneficiariesListView: View {
             // Search field — iOS 26 liquid glass.
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(Theme.textSecondary)
                 TextField(
                     "",
                     text: $query,
-                    prompt: Text("Search by name, bank, IBAN…").foregroundStyle(.white.opacity(0.7))
+                    prompt: Text("Search by name, bank, IBAN…").foregroundStyle(Theme.textSecondary)
                 )
                 .textFieldStyle(.plain)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .tint(.white)
 
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -194,11 +194,9 @@ struct BeneficiariesListView: View {
             VStack(alignment: .leading, spacing: 24) {
                 if !favorites.isEmpty {
                     section(title: "Favorites", count: favorites.count, items: favorites)
-                        .scrollEdgeBlur()
                 }
                 if !others.isEmpty {
                     section(title: "All beneficiaries", count: others.count, items: others)
-                        .scrollEdgeBlur()
                 }
             }
             .padding(.horizontal, 22)
@@ -206,8 +204,8 @@ struct BeneficiariesListView: View {
             .padding(.bottom, 60)
         }
         .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .scrollEdgeBlur()
     }
 
     @ViewBuilder
@@ -216,7 +214,7 @@ struct BeneficiariesListView: View {
             HStack(spacing: 6) {
                 Text(title)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("\(count)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.accent)
@@ -269,18 +267,17 @@ struct BeneficiariesListView: View {
         VStack(spacing: 16) {
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(Theme.accent.opacity(0.1))
-                    .frame(width: 120, height: 120)
-                Image(systemName: query.isEmpty ? "person.2.fill" : "magnifyingglass")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-            }
+            // Two different empty states sharing one block: nobody added yet,
+            // versus a search that found nobody. They get different artwork for
+            // the same reason they get different copy.
+            EmptyStateArt(
+                name: query.isEmpty ? "empty_beneficiaries" : "empty_search",
+                size: 150
+            )
 
             Text(query.isEmpty ? "No beneficiaries yet" : "No matches found")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             Text(query.isEmpty
                  ? "Add someone you send money to often — \nwe'll keep them one tap away."
@@ -337,11 +334,11 @@ private struct FilterChip: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(isActive ? Theme.accent : Color.white.opacity(0.08))
+                        .fill(isActive ? Theme.accent : Theme.cardOverlay)
                         .overlay(
                             Capsule()
                                 .strokeBorder(
-                                    isActive ? Color.clear : Color.white.opacity(0.15),
+                                    isActive ? Color.clear : Theme.strokeSubtle,
                                     lineWidth: 1
                                 )
                         )
@@ -365,7 +362,7 @@ struct BeneficiaryRow: View {
                     Circle().fill(beneficiary.avatarBg)
                     Text(beneficiary.initial)
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .frame(width: 44, height: 44)
 
@@ -374,7 +371,7 @@ struct BeneficiaryRow: View {
                     HStack(spacing: 6) {
                         Text(beneficiary.displayName)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1)
 
                         if beneficiary.kind == .wallet {
@@ -411,7 +408,7 @@ struct BeneficiaryRow: View {
 
             if showDivider {
                 Rectangle()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.cardOverlay)
                     .frame(height: 1)
                     .padding(.leading, 70)
             }

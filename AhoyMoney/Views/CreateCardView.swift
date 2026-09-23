@@ -14,7 +14,17 @@ struct CreateCardView: View {
     @State private var step: Int = 0
     @State private var design: CardDesign = .aurora
     @State private var label: String = "Everyday"
+    /// True when the flow was opened for the worker rather than by them —
+    /// straight off the back of approval. The terms are a legal gate, so they
+    /// come first; declining puts them back on the arrival screen.
+    var showsTermsFirst: Bool = false
+    var onCancelled: () -> Void = {}
+
+    @State private var showTerms: Bool = false
     @State private var issuedCard: VirtualCard? = nil
+    @State private var hasShownTerms: Bool = false
+    @State private var issuing: Bool = false
+    @State private var issueFailed: Bool = false
     @FocusState private var labelFocused: Bool
 
     private let cardholder = "YOUSRI BOUHAMED"
@@ -39,9 +49,30 @@ struct CreateCardView: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear {
+            guard showsTermsFirst, !hasShownTerms else { return }
+            hasShownTerms = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showTerms = true }
+        }
+        .sheet(isPresented: $showTerms) {
+            CardTermsSheet(onAccepted: {}, onDeclined: { onCancelled() })
+        }
+        // Presented over the review step rather than pushed, so a retry keeps
+        // the colour and name they already chose instead of starting again.
+        .sheet(isPresented: $issueFailed) {
+            issueFailedSheet
+        }
         .navigationDestination(item: $issuedCard) { card in
+            // "Done" unwinds two pushes: the success screen, then this one.
+            // Calling `dismiss()` alone did nothing, because it targets this
+            // view while the success screen is still pushed on top of it —
+            // popping a mid-stack view through an `isPresented` binding is
+            // ignored. Clear the child first, then pop self.
             CardSuccessView(card: card) {
-                dismiss()
+                issuedCard = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    dismiss()
+                }
             }
         }
     }
@@ -52,7 +83,7 @@ struct CreateCardView: View {
         ZStack {
             Text(stepTitle)
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             HStack {
                 Button {
@@ -96,16 +127,23 @@ struct CreateCardView: View {
                 let preview = VirtualCard(
                     label: label,
                     design: design,
-                    balance: 0,
                     last4: "4421",
                     fullNumber: "4242 4242 4242 4421",
                     expiry: "08/29",
                     cvv: "342",
                     cardholderName: cardholder
                 )
-                CardArtwork(card: preview, size: CGSize(width: 320, height: 200))
+                // Width-driven rather than a fixed 320pt, so the preview fills
+                // the same margins as everything under it — and matches the
+                // size the card will actually be on the wallet screen.
+                Color.clear
+                    .aspectRatio(340.0 / 212.0, contentMode: .fit)
+                    .overlay {
+                        GeometryReader { geo in
+                            CardArtwork(card: preview, size: geo.size)
+                        }
+                    }
                     .padding(.top, 12)
-                    .scrollEdgeBlur()
 
                 Group {
                     switch step {
@@ -115,14 +153,13 @@ struct CreateCardView: View {
                     default: EmptyView()
                     }
                 }
-                .scrollEdgeBlur()
             }
             .padding(.horizontal, 22)
             .padding(.bottom, 24)
         }
         .scrollIndicators(.hidden)
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .scrollEdgeBlur()
     }
 
     // MARK: - Step 0: design picker
@@ -132,7 +169,7 @@ struct CreateCardView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Choose your style")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             LazyVGrid(
                 columns: [
@@ -162,7 +199,7 @@ struct CreateCardView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Give it a memorable name")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
 
             Text("Names help you keep track when you have several cards — try “Travel”, “Subscriptions”, or “Online shopping”.")
                 .font(.system(size: 13, weight: .medium))
@@ -172,7 +209,7 @@ struct CreateCardView: View {
             TextField(
                 "",
                 text: $label,
-                prompt: Text("Card name").foregroundStyle(.white.opacity(0.45))
+                prompt: Text("Card name").foregroundStyle(Theme.textSecondary)
             )
             .focused($labelFocused)
             .submitLabel(.done)
@@ -187,7 +224,7 @@ struct CreateCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Suggestions")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Theme.textSecondary)
 
                 FlexibleChipRow(
                     options: ["Everyday", "Travel", "Subscriptions", "Shopping", "Bills", "Savings"],
@@ -211,19 +248,33 @@ struct CreateCardView: View {
             // Summary card.
             VStack(spacing: 0) {
                 ReviewLine(label: "Design", value: design.displayName)
-                Divider().background(Color.white.opacity(0.08))
+                Divider().background(Theme.cardOverlay)
                 ReviewLine(label: "Card name", value: label)
-                Divider().background(Color.white.opacity(0.08))
+                Divider().background(Theme.cardOverlay)
                 ReviewLine(label: "Cardholder", value: cardholder.capitalized)
-                Divider().background(Color.white.opacity(0.08))
+                Divider().background(Theme.cardOverlay)
                 ReviewLine(label: "Network", value: "Visa")
-                Divider().background(Color.white.opacity(0.08))
-                ReviewLine(
-                    label: "Issuance fee",
-                    value: store.cards.isEmpty ? "Free (first card)" : "AED 5"
-                )
+                Divider().background(Theme.cardOverlay)
+                // Cards are free today but may be priced later, so the value
+                // comes from the store rather than being decided here.
+                ReviewLine(label: "Cost", value: priceText)
             }
             .background(Theme.card, in: .rect(cornerRadius: 16))
+
+            // The sentence that has to appear on the screen that makes a card.
+            // With more than one card in play, "another card means more money"
+            // is the misunderstanding that forms here if nothing says otherwise.
+            HStack(spacing: 8) {
+                Image(systemName: "wallet.bifold.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("All your cards spend the same wallet balance. A new card doesn't give you more money — it's another way to reach the money you already have.")
+                    .font(.system(size: 12, weight: .medium))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(Theme.textSecondary)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.cardOverlay, in: .rect(cornerRadius: 12))
 
             // Trust footer.
             HStack(spacing: 8) {
@@ -244,7 +295,7 @@ struct CreateCardView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 0) {
-            Divider().background(Color.white.opacity(0.06))
+            Divider().background(Theme.cardOverlay)
 
             HStack {
                 PrimaryWhiteButton(title: primaryTitle, enabled: canAdvance) {
@@ -257,8 +308,17 @@ struct CreateCardView: View {
         }
     }
 
+    private var priceText: String {
+        switch store.priceOfNextCard {
+        case .free:
+            return "Free"
+        case let .amount(value):
+            return "AED \(WalletStore.formatMoney(value))"
+        }
+    }
+
     private var primaryTitle: String {
-        step == totalSteps - 1 ? "Issue card with Face ID" : "Continue"
+        step == totalSteps - 1 ? "Make card" : "Continue"
     }
 
     private var canAdvance: Bool {
@@ -275,17 +335,91 @@ struct CreateCardView: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { step += 1 }
             return
         }
-        // Final step — Face ID, then create.
+        // Final step — Face ID, then issue.
         BiometricAuth.authenticate(reason: "Authenticate to issue your virtual card") { success in
             guard success else { return }
-            let new = VirtualCardStore.makeMockCard(
-                label: label,
-                design: design,
-                cardholderName: cardholder
-            )
-            store.add(new)
-            issuedCard = new
+            Task {
+                issuing = true
+                let outcome = await store.issue(
+                    label: label,
+                    design: design,
+                    cardholderName: cardholder
+                )
+                issuing = false
+                switch outcome {
+                case let .issued(card):
+                    issuedCard = card
+                case .failed:
+                    // Never terminal — no cooldown and no support route,
+                    // because trying again is the whole fix.
+                    withAnimation(.easeOut(duration: 0.2)) { issueFailed = true }
+                }
+            }
         }
+    }
+
+    // MARK: - Issue failed
+
+    /// One message, one button.
+    ///
+    /// No time is promised anywhere in this flow because there is nothing to
+    /// wait for — a virtual card is instant when it works. So this doesn't say
+    /// "try again later", and it doesn't offer support: the fix is pressing the
+    /// button, and the reason belongs in our logs rather than on their screen.
+    private var issueFailedSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Color(red: 0.86, green: 0.18, blue: 0.24).opacity(0.12))
+                    .frame(width: 60, height: 60)
+                Image(systemName: "creditcard.trianglebadge.exclamationmark")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.86, green: 0.18, blue: 0.24))
+            }
+            .padding(.top, 8)
+
+            Text("We couldn't make your card")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(Theme.ink)
+
+            Text("Nothing was charged and nothing changed. Give it another go.")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(Theme.grayText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            Button {
+                issueFailed = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { advance() }
+            } label: {
+                Text("Try again")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 54)
+                    .background(Theme.accent, in: .capsule)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                issueFailed = false
+            } label: {
+                Text("Not now")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(340)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(20)
+        .presentationBackground(Color.white)
+        .environment(\.colorScheme, .light)
     }
 }
 
@@ -303,6 +437,13 @@ private struct DesignSwatch: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(design.gradient)
                         .frame(height: 92)
+                        // Same facet treatment the real card gets, so the
+                        // swatch previews the finished thing rather than a
+                        // flat gradient the card never actually looks like.
+                        .overlay(
+                            FacetPattern(seed: UInt64(abs(design.rawValue.hashValue % 100_000)), cell: 16)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        )
                         .overlay(
                             RadialGradient(
                                 colors: [Color.white.opacity(0.25), .clear],
@@ -314,7 +455,7 @@ private struct DesignSwatch: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .strokeBorder(
-                                    isSelected ? Theme.accent : Color.white.opacity(0.08),
+                                    isSelected ? Theme.accent : Theme.cardOverlay,
                                     lineWidth: isSelected ? 2 : 1
                                 )
                         )
@@ -333,7 +474,7 @@ private struct DesignSwatch: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(design.displayName)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(design.tagline)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Theme.accent)
@@ -360,7 +501,7 @@ private struct ReviewLine: View {
             Spacer()
             Text(value)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
         }
         .padding(.horizontal, 14)
@@ -390,11 +531,11 @@ private struct FlexibleChipRow: View {
                             .padding(.vertical, 8)
                             .background(
                                 Capsule()
-                                    .fill(active ? Theme.accent : Color.white.opacity(0.08))
+                                    .fill(active ? Theme.accent : Theme.cardOverlay)
                                     .overlay(
                                         Capsule()
                                             .strokeBorder(
-                                                active ? Color.clear : Color.white.opacity(0.15),
+                                                active ? Color.clear : Theme.strokeSubtle,
                                                 lineWidth: 1
                                             )
                                     )

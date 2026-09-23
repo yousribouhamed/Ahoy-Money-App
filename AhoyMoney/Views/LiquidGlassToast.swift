@@ -15,7 +15,7 @@ struct LiquidGlassToast: View {
 
             Text(message)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
         }

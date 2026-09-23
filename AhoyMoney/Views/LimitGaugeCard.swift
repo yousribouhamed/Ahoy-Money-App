@@ -7,18 +7,29 @@ struct LimitGaugeCard: View {
     @Binding var value: Double
     var minValue: Double = 0
     var maxValue: Double = 100_000
+    /// Unfilled part of the arc. Defaults to white for the dark screens; the
+    /// white bottom sheets pass a light grey so the track is visible.
+    var trackColor: Color = .white
+    /// Centre value + title colour, for the same reason.
+    var labelColor: Color = Theme.textPrimary
 
     private var progress: Double {
         let clamped = min(max(value, minValue), maxValue)
         return (clamped - minValue) / (maxValue - minValue)
     }
 
+    /// Half of the knob plus a hair, so the knob never clips at the arc ends.
+    private static let inset: CGFloat = 13
+    private static let gaugeHeight: CGFloat = 118
+
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { geo in
-                let size = min(geo.size.width, geo.size.height * 2)
-                let radius = size / 2 - 14
-                let center = CGPoint(x: geo.size.width / 2, y: radius + 14)
+                // Radius comes from the height, so the bowl always fits the box
+                // it's given. The old `min(width, height * 2)` produced a centre
+                // below the box, which is why the value sat on top of the title.
+                let radius = geo.size.height - Self.inset
+                let center = CGPoint(x: geo.size.width / 2, y: geo.size.height - 1)
                 let strokeWidth: CGFloat = 12
                 let knobSize: CGFloat = 22
 
@@ -33,7 +44,7 @@ struct LimitGaugeCard: View {
                             clockwise: false
                         )
                     }
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
+                    .stroke(trackColor, style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round))
 
                     // Filled (cyan) arc — 180°→ angle.
                     Path { p in
@@ -55,19 +66,28 @@ struct LimitGaugeCard: View {
                         .fill(Theme.accent)
                         .overlay(
                             Circle()
-                                .strokeBorder(Color.white, lineWidth: 3)
+                                .strokeBorder(trackColor, lineWidth: 3)
                         )
                         .frame(width: knobSize, height: knobSize)
                         .position(x: knobX, y: knobY)
 
-                    // Center value.
-                    HStack(spacing: 2) {
-                        CurrencyIcon(size: 13, color: .white)
-                        Text(formatted)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
+                    // Value and caption together, seated inside the bowl where
+                    // there is room for both. They used to be separate views —
+                    // the value floating below the arc and the caption below
+                    // the gauge — and they collided.
+                    VStack(spacing: 1) {
+                        HStack(spacing: 4) {
+                            CurrencyIcon(size: 14, color: labelColor)
+                            Text(formatted)
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundStyle(labelColor)
+                                .monospacedDigit()
+                        }
+                        Text(title)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.accent)
                     }
-                    .position(x: geo.size.width / 2, y: center.y + 8)
+                    .position(x: geo.size.width / 2, y: center.y - radius * 0.42)
                 }
                 .contentShape(.rect)
                 .gesture(
@@ -77,16 +97,10 @@ struct LimitGaugeCard: View {
                         }
                 )
             }
-            .frame(height: 110)
-
-            Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .padding(.top, 4)
-                .padding(.bottom, 12)
+            .frame(height: Self.gaugeHeight)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 14)
+        .padding(.vertical, 16)
         .background(Theme.card, in: .rect(cornerRadius: 20))
     }
 

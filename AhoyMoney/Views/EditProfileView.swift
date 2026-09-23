@@ -38,7 +38,7 @@ struct EditProfileView: View {
                 ZStack {
                     Text("Edit Profile")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {
@@ -59,7 +59,7 @@ struct EditProfileView: View {
                         } label: {
                             Text("Save")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.textPrimary)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
                                 .background(Color(red: 0, green: 0.478, blue: 1), in: .capsule)
@@ -92,7 +92,7 @@ struct EditProfileView: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(name)
                                     .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.textPrimary)
                                 Text(email)
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(Theme.accent)
@@ -124,20 +124,19 @@ struct EditProfileView: View {
                         .padding(.horizontal, 10)
                         .frame(height: 65.5)
                         .frame(maxWidth: .infinity)
-                        .background(Color.white.opacity(0.1), in: .rect(cornerRadius: 16))
-                        .scrollEdgeBlur()
-
+                        .background(Theme.cardOverlayHigh, in: .rect(cornerRadius: 16))
+                        
                         // Profile Settings.
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Profile Settings")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.textPrimary)
 
                             VStack(spacing: 10) {
                                 // Name field.
                                 TextField("", text: $name)
                                     .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.textPrimary)
                                     .tint(.white)
                                     .focused($focused, equals: .name)
                                     .submitLabel(.next)
@@ -151,7 +150,7 @@ struct EditProfileView: View {
                                 HStack {
                                     Text(email)
                                         .font(.system(size: 16, weight: .medium))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.textPrimary)
                                     Spacer()
                                     Button {
                                         showUpdateEmail = true
@@ -195,10 +194,10 @@ struct EditProfileView: View {
                                         HStack(spacing: 10) {
                                             Text(phoneCode)
                                                 .font(.system(size: 16, weight: .medium))
-                                                .foregroundStyle(.white)
+                                                .foregroundStyle(Theme.textPrimary)
                                             Image(systemName: "chevron.down")
                                                 .font(.system(size: 12, weight: .semibold))
-                                                .foregroundStyle(.white.opacity(0.7))
+                                                .foregroundStyle(Theme.textSecondary)
                                         }
                                         .padding(16)
                                         .background(Theme.card, in: .rect(cornerRadius: 16))
@@ -206,7 +205,7 @@ struct EditProfileView: View {
                                         HStack {
                                             Text(phone)
                                                 .font(.system(size: 16, weight: .medium))
-                                                .foregroundStyle(.white)
+                                                .foregroundStyle(Theme.textPrimary)
                                             Spacer()
                                             Text("Update")
                                                 .font(.system(size: 15, weight: .medium))
@@ -238,7 +237,7 @@ struct EditProfileView: View {
                                         HStack(spacing: 8) {
                                             Text(country)
                                                 .font(.system(size: 15, weight: .semibold))
-                                                .foregroundStyle(.white)
+                                                .foregroundStyle(Theme.textPrimary)
                                             Image(systemName: "chevron.down")
                                                 .font(.system(size: 12, weight: .semibold))
                                                 .foregroundStyle(Theme.accent)
@@ -253,15 +252,14 @@ struct EditProfileView: View {
                                 .buttonStyle(.plain)
                             }
                         }
-                        .scrollEdgeBlur()
-                    }
+                                            }
                     .padding(.horizontal, 24)
                     .padding(.top, 28)
                     .padding(.bottom, 40)
                 }
                 .scrollIndicators(.hidden)
-                .scrollEdgeEffectStyle(.soft, for: .top)
                 .scrollEdgeEffectStyle(.soft, for: .bottom)
+                .scrollEdgeBlur()
             }
         }
         .navigationBarBackButtonHidden(true)

@@ -1,4 +1,11 @@
-import AVFoundation
+// AVFoundation isn't audited for concurrency, so `AVCaptureSession` carries no
+// `Sendable` conformance even though Apple documents it as safe to drive from a
+// dedicated queue. The camera controller below does exactly that — the session
+// is a `let`, and every call into it goes through one serial queue — so the
+// captures the compiler flags are sound. `@preconcurrency` scopes the
+// suppression to Sendable diagnostics from this one module rather than muting
+// warnings generally.
+@preconcurrency import AVFoundation
 import SwiftUI
 
 struct SelfieCaptureView: View {
@@ -19,7 +26,7 @@ struct SelfieCaptureView: View {
                 ZStack {
                     Text("Setup Wallet")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
 
                     HStack {
                         Button {
@@ -34,18 +41,11 @@ struct SelfieCaptureView: View {
                         .tint(.white)
 
                         Spacer()
-
-                        Button {
-                            onCapture()
-                        } label: {
-                            Text("Next")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color(red: 3/255, green: 1/255, blue: 38/255))
-                                .padding(.horizontal, 18)
-                                .padding(.vertical, 10)
-                                .background(Theme.accent, in: .capsule)
-                        }
-                        .buttonStyle(.plain)
+                        // Balances the back button so the title stays
+                        // centred. The forward action lives at the bottom
+                        // of the screen — a second one up here competed
+                        // with it and let people skip a step.
+                        Color.clear.frame(width: 44, height: 44)
                     }
                 }
                 .padding(.horizontal, 19)
@@ -53,13 +53,7 @@ struct SelfieCaptureView: View {
 
                 VStack(alignment: .leading, spacing: 24) {
                     // Progress: first 2 white (steps 1 & 2 active), last 3 cyan.
-                    HStack(spacing: 8) {
-                        Capsule().fill(Color.white).frame(height: 6)
-                        Capsule().fill(Color.white).frame(height: 6)
-                        Capsule().fill(Theme.accent).frame(height: 6)
-                        Capsule().fill(Theme.accent).frame(height: 6)
-                        Capsule().fill(Theme.accent).frame(height: 6)
-                    }
+                    OnboardingStepper(step: 2)
 
                     // Step header.
                     VStack(alignment: .leading, spacing: 12) {
@@ -72,7 +66,7 @@ struct SelfieCaptureView: View {
 
                             Text("Let's Take a Selfie")
                                 .font(.system(size: 24, weight: .bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.textPrimary)
                         }
 
                         Text("Before you take your selfie, please remove your glasses, hat, face mask or any other accessories. These make it harder to identify you.")
@@ -92,7 +86,7 @@ struct SelfieCaptureView: View {
                 if !hasCaptured {
                     Text("Turn your head to the left")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 28)
                 }
